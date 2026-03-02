@@ -1,0 +1,44 @@
+# =========================
+# Exclude non-source folders
+# =========================
+Deployment/
+Archive/
+frontend/
+scripts/
+.claude/
+
+# =========================
+# .NET Backend
+# =========================
+backend/bin/
+backend/obj/
+backend/publish/
+backend/.vs/
+*.user
+*.suo
+*.cache
+*.DotSettings.user
+
+# =========================
+# Frontend (React + Vite)
+# =========================
+frontend-react/node_modules/
+frontend-react/dist/
+frontend-react/.env*
+frontend-react/*.tsbuildinfo
+
+# =========================
+# Docker
+# =========================
+backend/sqldata/
+
+# =========================
+# IDE / OS
+# =========================
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

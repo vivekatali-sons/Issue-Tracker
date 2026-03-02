@@ -1,0 +1,4 @@
+SR#,Issue Description,Raised By,Raised On,Module,Screen Name,Type of Issue,Severity,Status,Resolved On,Comments,Assigned To,Issue Date,Due Date
+1,Provide a detailed issue description here (maps to both Title and Description),John Doe,19-Feb-26,Service,Job Card,Issue,Medium,New,,Optional comments,Jane Smith,19-Feb-26,28-Feb-26
+2,Another issue - Severity can be: Critical / High / Medium / Low / Non Critical,Jane Smith,21-Feb-26,Booking,Service Booking,Validation,High,Open,,Dates accept: DD-MMM-YY or DD/MM/YYYY or YYYY-MM-DD,John Doe,21-Feb-26,25-Feb-26
+3,Status values: New / Open / In Progress / Testing / Resolved / Closed / Reopened / Future Requirement,John Doe,22-Feb-26,VHC,Checklist,Enhancement,Low,Resolved,25-Feb-26,Resolved date only needed for Resolved status,Jane Smith,22-Feb-26,28-Feb-26
