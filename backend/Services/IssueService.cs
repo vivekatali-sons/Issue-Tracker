@@ -150,6 +150,10 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             changes.Add(new("Assigning Date",
                 issue.AssigningDate?.ToString("yyyy-MM-dd"),
                 request.AssigningDate.Value.ToString("yyyy-MM-dd")));
+        if (request.ProcessId is not null && request.ProcessId != issue.ProcessId)
+            changes.Add(new("Process", issue.ProcessId, request.ProcessId));
+        if (request.TaskId is not null && request.TaskId != issue.TaskId)
+            changes.Add(new("Task", issue.TaskId, request.TaskId));
 
         // Apply changes
         if (request.IssueTitle is not null) issue.IssueTitle = request.IssueTitle;
@@ -159,6 +163,8 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
         if (request.AssigningDate is not null) issue.AssigningDate = request.AssigningDate;
         if (request.DueDate is not null) issue.DueDate = request.DueDate;
         if (request.Severity is not null) issue.Severity = request.Severity;
+        if (request.ProcessId is not null) issue.ProcessId = request.ProcessId;
+        if (request.TaskId is not null) issue.TaskId = request.TaskId;
 
         await repo.UpdateAsync(issue);
 
@@ -304,11 +310,34 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
 
     public async Task<BulkUploadResult> BulkCreateFromCsvAsync(Stream csvStream)
     {
-        // Load valid values from master data tables
-        var statuses = await masterRepo.GetStatusesAsync();
-        var severities = await masterRepo.GetSeveritiesAsync();
-        var validStatuses = new HashSet<string>(statuses.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
-        var validSeverities = new HashSet<string>(severities.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+        // Load ALL master data in parallel for strict validation
+        var statusesTask = masterRepo.GetStatusesAsync();
+        var severitiesTask = masterRepo.GetSeveritiesAsync();
+        var processesTask = masterRepo.GetProcessesAsync();
+        var usersTask = masterRepo.GetUsersAsync();
+        await Task.WhenAll(statusesTask, severitiesTask, processesTask, usersTask);
+
+        var validStatuses = new HashSet<string>((await statusesTask).Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+        var validSeverities = new HashSet<string>((await severitiesTask).Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+
+        // Process lookups: name → id, id set
+        var processes = await processesTask;
+        var processNameToId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in processes) processNameToId.TryAdd(p.Name, p.Id);
+        var processIds = new HashSet<string>(processes.Select(p => p.Id), StringComparer.OrdinalIgnoreCase);
+
+        // User lookups: accept Emp ID, Email, or Name (name must be unique)
+        var users = (await usersTask).ToList();
+        var userIds = new HashSet<string>(users.Select(u => u.Id), StringComparer.OrdinalIgnoreCase);
+        var userEmails = new HashSet<string>(
+            users.Where(u => !string.IsNullOrWhiteSpace(u.Email)).Select(u => u.Email!),
+            StringComparer.OrdinalIgnoreCase);
+        var userNameCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var u in users)
+        {
+            userNameCounts.TryGetValue(u.Name, out var count);
+            userNameCounts[u.Name] = count + 1;
+        }
 
         using var reader = new StreamReader(csvStream);
         using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
@@ -335,14 +364,14 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
                 string.IsNullOrWhiteSpace(row.AssignedTo))
                 continue;
 
-            var errors = ValidateRow(row, validStatuses, validSeverities);
+            var errors = ValidateRow(row, validStatuses, validSeverities, processNameToId, processIds, userIds, userEmails, userNameCounts);
             if (errors.Count > 0)
             {
-                failedRows.Add(new BulkUploadRowError(rowNumber, row.SrNumber, errors));
+                failedRows.Add(new BulkUploadRowError(rowNumber, row.SrNumber, errors, CsvRowToDict(row)));
                 continue;
             }
 
-            var request = MapRowToRequest(row, validSeverities);
+            var request = MapRowToRequest(row, validSeverities, processNameToId, processIds);
             var issueId = await CreateAsync(request);
 
             // If CSV status is not "New", update status after creation
@@ -369,7 +398,15 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
         );
     }
 
-    private static List<string> ValidateRow(CsvIssueRow row, HashSet<string> validStatuses, HashSet<string> validSeverities)
+    private static List<string> ValidateRow(
+        CsvIssueRow row,
+        HashSet<string> validStatuses,
+        HashSet<string> validSeverities,
+        Dictionary<string, string> processNameToId,
+        HashSet<string> processIds,
+        HashSet<string> userIds,
+        HashSet<string> userEmails,
+        Dictionary<string, int> userNameCounts)
     {
         var errors = new List<string>();
 
@@ -390,10 +427,26 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             NormalizeEnumValue(row.Status, validStatuses) is null)
             errors.Add($"Invalid Status: '{row.Status}'. Must be one of: {string.Join(", ", validStatuses)}");
 
-        // Severity validation (strict, but blank is ok — defaults to Medium)
+        // Severity validation (strict, but blank defaults to Medium)
         if (!string.IsNullOrWhiteSpace(row.Severity) &&
             NormalizeEnumValue(row.Severity, validSeverities) is null)
             errors.Add($"Invalid Severity: '{row.Severity}'. Must be one of: {string.Join(", ", validSeverities)}");
+
+        // Module/Process validation (strict — must exist in master)
+        if (!string.IsNullOrWhiteSpace(row.Module) &&
+            !processNameToId.ContainsKey(row.Module) &&
+            !processIds.Contains(row.Module))
+            errors.Add($"Invalid Module: '{row.Module}'. Must match an active process name or ID.");
+
+        // Screen Name is free-text (not validated against MasterTasks)
+
+        // RaisedBy validation: accept Emp ID, Email, or unique Name
+        if (!string.IsNullOrWhiteSpace(row.RaisedBy))
+            ValidateUserRef(row.RaisedBy, "Raised By", userIds, userEmails, userNameCounts, errors);
+
+        // AssignedTo validation: same logic, but optional field
+        if (!string.IsNullOrWhiteSpace(row.AssignedTo))
+            ValidateUserRef(row.AssignedTo, "Assigned To", userIds, userEmails, userNameCounts, errors);
 
         // Due date validation
         if (!string.IsNullOrWhiteSpace(row.DueDate) && !TryParseDate(row.DueDate, out _))
@@ -406,7 +459,35 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
         return errors;
     }
 
-    private static CreateIssueRequest MapRowToRequest(CsvIssueRow row, HashSet<string> validSeverities)
+    private static void ValidateUserRef(
+        string value, string fieldName,
+        HashSet<string> userIds,
+        HashSet<string> userEmails,
+        Dictionary<string, int> userNameCounts,
+        List<string> errors)
+    {
+        // 1. Exact match on Emp ID — always unambiguous
+        if (userIds.Contains(value)) return;
+
+        // 2. Exact match on Email — always unambiguous
+        if (userEmails.Contains(value)) return;
+
+        // 3. Match by name — must resolve to exactly one user
+        if (userNameCounts.TryGetValue(value, out var count))
+        {
+            if (count > 1)
+                errors.Add($"Ambiguous {fieldName}: '{value}' matches {count} users. Use Emp ID or Email instead.");
+            return; // count == 1 → valid
+        }
+
+        errors.Add($"Invalid {fieldName}: '{value}'. User not found (checked Emp ID, Email, and Name).");
+    }
+
+    private static CreateIssueRequest MapRowToRequest(
+        CsvIssueRow row,
+        HashSet<string> validSeverities,
+        Dictionary<string, string> processNameToId,
+        HashSet<string> processIds)
     {
         TryParseDate(row.RaisedOn, out var raisedDate);
         TryParseDate(row.IssueDate, out var issueDate);
@@ -419,14 +500,20 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             : row.IssueDescription ?? string.Empty;
 
         var description = row.IssueDescription ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(row.ScreenName))
+            description = $"[{row.ScreenName}] {description}";
         if (!string.IsNullOrWhiteSpace(row.Comments))
             description += "\n\nComments: " + row.Comments;
 
         var severity = NormalizeEnumValue(row.Severity, validSeverities) ?? "Medium";
 
+        // Resolve Module name → processId (accept both name and direct ID)
+        var processId = processNameToId.GetValueOrDefault(row.Module ?? "")
+            ?? (processIds.Contains(row.Module ?? "") ? row.Module! : string.Empty);
+
         return new CreateIssueRequest(
-            ProcessId: row.Module ?? string.Empty,
-            TaskId: row.ScreenName ?? string.Empty,
+            ProcessId: processId,
+            TaskId: string.Empty,
             IssueDate: finalDate,
             IssueRaisedBy: row.RaisedBy ?? string.Empty,
             IssueTitle: title,
@@ -456,6 +543,24 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
     }
 
     // ── Helpers ──
+
+    private static Dictionary<string, string?> CsvRowToDict(CsvIssueRow row) => new()
+    {
+        ["SR#"] = row.SrNumber,
+        ["Issue Description"] = row.IssueDescription,
+        ["Raised By"] = row.RaisedBy,
+        ["Raised On"] = row.RaisedOn,
+        ["Module"] = row.Module,
+        ["Screen Name"] = row.ScreenName,
+        ["Type of Issue"] = row.TypeOfIssue,
+        ["Severity"] = row.Severity,
+        ["Status"] = row.Status,
+        ["Resolved On"] = row.ResolvedOn,
+        ["Comments"] = row.Comments,
+        ["Assigned To"] = row.AssignedTo,
+        ["Issue Date"] = row.IssueDate,
+        ["Due Date"] = row.DueDate,
+    };
 
     private static string BuildChangesJson(List<FieldChange> changes)
     {

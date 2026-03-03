@@ -27,7 +27,7 @@ public interface IAdminRepository
 
     // Tasks
     Task<IEnumerable<AdminMasterTask>> GetAllTasksAsync();
-    Task CreateTaskAsync(CreateTaskRequest req);
+    Task<string> CreateTaskAsync(CreateTaskRequest req);
     Task UpdateTaskAsync(string id, UpdateTaskRequest req);
     Task ToggleTaskActiveAsync(string id);
 
@@ -47,4 +47,10 @@ public interface IAdminRepository
 
     // Get user by ID (for admin enter-app)
     Task<EnsureUserResponse?> GetUserByIdAsync(string userId);
+
+    // Stamp last login timestamp
+    Task StampLastLoginAsync(string userId);
+
+    // Dashboard stats
+    Task<AdminDashboardStats> GetDashboardStatsAsync();
 }

@@ -6,105 +6,9 @@ public class SeedData(IDbConnectionFactory connectionFactory, ILogger<SeedData> 
 {
     public async Task SeedAsync()
     {
-        using var connection = connectionFactory.CreateConnection();
-
-        // Only seed if table is empty
-        var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Issues");
-        if (count > 0)
-        {
-            logger.LogInformation("Database already seeded ({Count} issues found). Skipping.", count);
-            return;
-        }
-
-        logger.LogInformation("Seeding database with sample data...");
-
-        // ── Issue 1: Sales CRM ──
-        var issue1Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Issues (ProcessId, TaskId, IssueDate, IssueRaisedBy, IssueTitle, IssueDescription, Status, Severity, AssignedTo, AssigningDate, DueDate, CurrentVersion, ReopenCount, CreatedAt, UpdatedAt)
-            VALUES ('p1', 't1', '2026-02-01', 'u6', 'CRM Lead Conversion Failing', 'When converting a lead to opportunity, the system throws a validation error on the phone number field even when format is correct.', 'In Progress', 'High', 'u1', '2026-02-01', '2026-02-10', 1, 0, '2026-02-01T09:00:00', '2026-02-05T14:30:00');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """);
-        await connection.ExecuteAsync("INSERT INTO IssueDependentProcesses (IssueId, ProcessId) VALUES (@IssueId, @ProcessId)",
-            new[] { new { IssueId = issue1Id, ProcessId = "p4" } });
-        await connection.ExecuteAsync("""
-            INSERT INTO IssueVersions (IssueId, VersionNumber, CreatedDate, AssignedTo, AssigningDate, DueDate, Status)
-            VALUES (@IssueId, 1, '2026-02-01T09:00:00', 'u1', '2026-02-01', '2026-02-10', 'New')
-            """, new { IssueId = issue1Id });
-
-        // ── Issue 2: Aftersales Work Order ──
-        var issue2Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Issues (ProcessId, TaskId, IssueDate, IssueRaisedBy, IssueTitle, IssueDescription, Status, Severity, AssignedTo, AssigningDate, DueDate, CurrentVersion, ReopenCount, CreatedAt, UpdatedAt)
-            VALUES ('p2', 't8', '2026-02-03', 'u7', 'Work Order Parts List Not Syncing', 'Parts added to a work order in the service module are not syncing to the procurement system for ordering.', 'New', 'Critical', 'u2', '2026-02-03', '2026-02-07', 1, 0, '2026-02-03T11:15:00', '2026-02-03T11:15:00');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """);
-        await connection.ExecuteAsync("INSERT INTO IssueDependentProcesses (IssueId, ProcessId) VALUES (@IssueId, @ProcessId)",
-            new[] {
-                new { IssueId = issue2Id, ProcessId = "p1" },
-                new { IssueId = issue2Id, ProcessId = "p3" },
-            });
-        await connection.ExecuteAsync("""
-            INSERT INTO IssueVersions (IssueId, VersionNumber, CreatedDate, AssignedTo, AssigningDate, DueDate, Status)
-            VALUES (@IssueId, 1, '2026-02-03T11:15:00', 'u2', '2026-02-03', '2026-02-07', 'New')
-            """, new { IssueId = issue2Id });
-
-        // ── Issue 3: Finance Oracle Setup ──
-        var issue3Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Issues (ProcessId, TaskId, IssueDate, IssueRaisedBy, IssueTitle, IssueDescription, Status, Severity, AssignedTo, AssigningDate, DueDate, CurrentVersion, ReopenCount, CreatedAt, UpdatedAt)
-            VALUES ('p4', 't19', '2026-02-05', 'u8', 'Oracle Chart of Accounts Mapping Incorrect', 'The GL account mapping between DMS and Oracle Finance has discrepancies in the revenue accounts. AR invoices post to wrong GL codes.', 'Testing', 'Medium', 'u5', '2026-02-05', '2026-02-15', 1, 0, '2026-02-05T08:30:00', '2026-02-12T16:00:00');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """);
-        await connection.ExecuteAsync("INSERT INTO IssueDependentProcesses (IssueId, ProcessId) VALUES (@IssueId, @ProcessId)",
-            new[] { new { IssueId = issue3Id, ProcessId = "p1" } });
-        await connection.ExecuteAsync("""
-            INSERT INTO IssueVersions (IssueId, VersionNumber, CreatedDate, AssignedTo, AssigningDate, DueDate, Status)
-            VALUES (@IssueId, 1, '2026-02-05T08:30:00', 'u5', '2026-02-05', '2026-02-15', 'New')
-            """, new { IssueId = issue3Id });
-
-        // ── Issue 4: Procurement (no dependent processes) ──
-        var issue4Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Issues (ProcessId, TaskId, IssueDate, IssueRaisedBy, IssueTitle, IssueDescription, Status, Severity, AssignedTo, AssigningDate, DueDate, CurrentVersion, ReopenCount, CreatedAt, UpdatedAt)
-            VALUES ('p3', 't15', '2026-02-08', 'u6', 'Car Procurement Approval Workflow Stuck', 'Purchase orders above AED 100K are not routing to the GM for approval. Stuck at department head level.', 'New', 'Low', 'u3', '2026-02-08', '2026-02-20', 1, 0, '2026-02-08T14:00:00', '2026-02-08T14:00:00');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """);
-        await connection.ExecuteAsync("""
-            INSERT INTO IssueVersions (IssueId, VersionNumber, CreatedDate, AssignedTo, AssigningDate, DueDate, Status)
-            VALUES (@IssueId, 1, '2026-02-08T14:00:00', 'u3', '2026-02-08', '2026-02-20', 'New')
-            """, new { IssueId = issue4Id });
-
-        // ── Issue 5: Resolved issue (Sales → Finance dep) ──
-        var issue5Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Issues (ProcessId, TaskId, IssueDate, IssueRaisedBy, IssueTitle, IssueDescription, Status, Severity, AssignedTo, AssigningDate, DueDate, CurrentVersion, ReopenCount, CreatedAt, UpdatedAt)
-            VALUES ('p1', 't3', '2026-01-20', 'u7', 'F&I Contract PDF Generation Error', 'Finance and Insurance contracts fail to generate PDF when customer has special characters in name (e.g., accented letters).', 'Resolved', 'High', 'u4', '2026-01-20', '2026-01-30', 1, 0, '2026-01-20T10:00:00', '2026-01-28T17:00:00');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """);
-        await connection.ExecuteAsync("INSERT INTO IssueDependentProcesses (IssueId, ProcessId) VALUES (@IssueId, @ProcessId)",
-            new[] { new { IssueId = issue5Id, ProcessId = "p4" } });
-
-        // Add resolution for issue 5
-        var res5Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO Resolutions (IssueId, VersionNumber, ResolvedDate, ResolvedBy, ResolutionNotes, RootCause, PreventiveMeasures, VerificationDate)
-            VALUES (@IssueId, 1, '2026-01-28T17:00:00', 'u4', 'Updated PDF generation library to handle Unicode characters. Added encoding normalization step before PDF render.', 'PDF library was using ASCII encoding instead of UTF-8 for customer name fields.', 'Added unit tests for special character handling in all document generation. Updated encoding defaults in config.', '2026-01-29');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """, new { IssueId = issue5Id });
-        await connection.ExecuteAsync("INSERT INTO ResolutionTesters (ResolutionId, UserId) VALUES (@ResolutionId, @UserId)",
-            new[] {
-                new { ResolutionId = res5Id, UserId = "u6" },
-                new { ResolutionId = res5Id, UserId = "u7" },
-            });
-        var depTest5Id = await connection.ExecuteScalarAsync<int>("""
-            INSERT INTO DependentProcessTestResults (ResolutionId, ProcessId, Tested, TestDate)
-            VALUES (@ResolutionId, 'p4', 1, '2026-01-29');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-            """, new { ResolutionId = res5Id });
-        await connection.ExecuteAsync("INSERT INTO TestResultTesters (TestResultId, UserId) VALUES (@TestResultId, @UserId)",
-            new[] { new { TestResultId = depTest5Id, UserId = "u5" } });
-
-        await connection.ExecuteAsync("""
-            INSERT INTO IssueVersions (IssueId, VersionNumber, CreatedDate, AssignedTo, AssigningDate, DueDate, Status)
-            VALUES (@IssueId, 1, '2026-01-20T10:00:00', 'u4', '2026-01-20', '2026-01-30', 'Resolved')
-            """, new { IssueId = issue5Id });
-
-        logger.LogInformation("Seeded {Count} sample issues.", 5);
+        // No-op: sample issue seeding removed per requirement.
+        // Issues should be created via the UI or bulk upload only.
+        await Task.CompletedTask;
     }
 
     public async Task SeedMasterDataAsync()
@@ -152,11 +56,15 @@ public class SeedData(IDbConnectionFactory connectionFactory, ILogger<SeedData> 
             IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p1')
             INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p1', 'Sales Module', 'Car sales and CRM operations', 0);
             IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p2')
-            INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p2', 'Aftersales Module', 'Service and warranty management', 1);
+            INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p2', 'Services Module', 'Service and warranty management', 1);
             IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p3')
             INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p3', 'Procurement Module', 'Vehicle and parts procurement', 2);
             IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p4')
             INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p4', 'Finance Module', 'Financial integrations and accounting', 3);
+            IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p5')
+            INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p5', 'Logistics Module', 'Logistics and supply chain operations', 4);
+            IF NOT EXISTS (SELECT 1 FROM MasterProcesses WHERE Id = 'p6')
+            INSERT INTO MasterProcesses (Id, Name, Description, DisplayOrder) VALUES ('p6', 'Training and UAT', 'Training sessions and user acceptance testing', 5);
             """);
 
         // ── Tasks ──
@@ -173,6 +81,8 @@ public class SeedData(IDbConnectionFactory connectionFactory, ILogger<SeedData> 
             INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder) VALUES ('t8', 'Work Order', 'p2', 0);
             IF NOT EXISTS (SELECT 1 FROM MasterTasks WHERE Id = 't9')
             INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder) VALUES ('t9', 'Car Inspection', 'p2', 1);
+            IF NOT EXISTS (SELECT 1 FROM MasterTasks WHERE Id = 't10')
+            INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder) VALUES ('t10', 'Parts Master', 'p2', 2);
             IF NOT EXISTS (SELECT 1 FROM MasterTasks WHERE Id = 't15')
             INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder) VALUES ('t15', 'Car Procurement', 'p3', 0);
             IF NOT EXISTS (SELECT 1 FROM MasterTasks WHERE Id = 't18')

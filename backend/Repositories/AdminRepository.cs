@@ -7,11 +7,13 @@ namespace DMS.API.Repositories;
 
 public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRepository
 {
+    private IDbConnection Db() => connectionFactory.CreateConnection();
+
     // ── Auth ──
 
     public async Task<AdminCredential?> GetAdminByUsernameAsync(string username)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryFirstOrDefaultAsync<AdminCredential>(
             "sp_GetAdminByUsername", new { Username = username }, commandType: CommandType.StoredProcedure);
     }
@@ -20,14 +22,14 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<AdminMasterStatus>> GetAllStatusesAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<AdminMasterStatus>(
             "sp_GetAllMasterStatuses", commandType: CommandType.StoredProcedure);
     }
 
     public async Task<int> CreateStatusAsync(CreateStatusRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.ExecuteScalarAsync<int>(
             "sp_CreateMasterStatus", new { req.Name, req.Label, req.TextColor, req.BgColor, req.ChartColor, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -35,7 +37,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task UpdateStatusAsync(int id, UpdateStatusRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
             "sp_UpdateMasterStatus", new { Id = id, req.Name, req.Label, req.TextColor, req.BgColor, req.ChartColor, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -43,7 +45,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task ToggleStatusActiveAsync(int id)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_ToggleMasterStatusActive", new { Id = id }, commandType: CommandType.StoredProcedure);
     }
 
@@ -51,14 +53,14 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<AdminMasterSeverity>> GetAllSeveritiesAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<AdminMasterSeverity>(
             "sp_GetAllMasterSeverities", commandType: CommandType.StoredProcedure);
     }
 
     public async Task<int> CreateSeverityAsync(CreateSeverityRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.ExecuteScalarAsync<int>(
             "sp_CreateMasterSeverity", new { req.Name, req.Label, req.TextColor, req.BgColor, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -66,7 +68,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task UpdateSeverityAsync(int id, UpdateSeverityRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
             "sp_UpdateMasterSeverity", new { Id = id, req.Name, req.Label, req.TextColor, req.BgColor, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -74,7 +76,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task ToggleSeverityActiveAsync(int id)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_ToggleMasterSeverityActive", new { Id = id }, commandType: CommandType.StoredProcedure);
     }
 
@@ -82,14 +84,14 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<AdminMasterProcess>> GetAllProcessesAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<AdminMasterProcess>(
             "sp_GetAllMasterProcesses", commandType: CommandType.StoredProcedure);
     }
 
     public async Task CreateProcessAsync(CreateProcessRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
             "sp_CreateMasterProcess", new { req.Id, req.Name, req.Description, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -97,7 +99,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task UpdateProcessAsync(string id, UpdateProcessRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
             "sp_UpdateMasterProcess", new { Id = id, req.Name, req.Description, req.DisplayOrder },
             commandType: CommandType.StoredProcedure);
@@ -105,7 +107,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task ToggleProcessActiveAsync(string id)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_ToggleMasterProcessActive", new { Id = id }, commandType: CommandType.StoredProcedure);
     }
 
@@ -113,30 +115,30 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<AdminMasterTask>> GetAllTasksAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<AdminMasterTask>(
             "sp_GetAllMasterTasks", commandType: CommandType.StoredProcedure);
     }
 
-    public async Task CreateTaskAsync(CreateTaskRequest req)
+    public async Task<string> CreateTaskAsync(CreateTaskRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
-        await conn.ExecuteAsync(
-            "sp_CreateMasterTask", new { req.Id, req.Name, req.ProcessId, req.DisplayOrder },
+        using var conn = Db();
+        return await conn.QuerySingleAsync<string>(
+            "sp_CreateMasterTask", new { req.Name, req.ProcessId },
             commandType: CommandType.StoredProcedure);
     }
 
     public async Task UpdateTaskAsync(string id, UpdateTaskRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
-            "sp_UpdateMasterTask", new { Id = id, req.Name, req.ProcessId, req.DisplayOrder },
+            "sp_UpdateMasterTask", new { Id = id, req.Name, req.ProcessId },
             commandType: CommandType.StoredProcedure);
     }
 
     public async Task ToggleTaskActiveAsync(string id)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_ToggleMasterTaskActive", new { Id = id }, commandType: CommandType.StoredProcedure);
     }
 
@@ -144,30 +146,30 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<AdminMasterUser>> GetAllUsersAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<AdminMasterUser>(
             "sp_GetAllMasterUsers", commandType: CommandType.StoredProcedure);
     }
 
     public async Task CreateUserAsync(CreateUserRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
-            "sp_CreateMasterUser", new { req.Id, req.Name, req.Email, req.DisplayOrder },
+            "sp_CreateMasterUser", new { req.Id, req.Name, req.Email },
             commandType: CommandType.StoredProcedure);
     }
 
     public async Task UpdateUserAsync(string id, UpdateUserRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync(
-            "sp_UpdateMasterUser", new { Id = id, req.Name, req.Email, req.DisplayOrder },
+            "sp_UpdateMasterUser", new { Id = id, req.Name, req.Email },
             commandType: CommandType.StoredProcedure);
     }
 
     public async Task ToggleUserActiveAsync(string id)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_ToggleMasterUserActive", new { Id = id }, commandType: CommandType.StoredProcedure);
     }
 
@@ -175,21 +177,21 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<IEnumerable<UserPermission>> GetAllUserPermissionsAsync()
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryAsync<UserPermission>(
             "sp_GetAllUserPermissions", commandType: CommandType.StoredProcedure);
     }
 
     public async Task<UserPermission?> GetUserPermissionsAsync(string userId)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryFirstOrDefaultAsync<UserPermission>(
             "sp_GetUserPermissions", new { UserId = userId }, commandType: CommandType.StoredProcedure);
     }
 
     public async Task UpsertUserPermissionsAsync(string userId, UpdateUserPermissionsRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         await conn.ExecuteAsync("sp_UpsertUserPermissions", new
         {
             UserId = userId,
@@ -202,7 +204,7 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<EnsureUserResponse?> EnsureUserAsync(EnsureUserRequest req)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryFirstOrDefaultAsync<EnsureUserResponse>(
             "sp_EnsureUser", new { UserId = req.Id, req.Name, req.Email },
             commandType: CommandType.StoredProcedure);
@@ -212,8 +214,26 @@ public class AdminRepository(IDbConnectionFactory connectionFactory) : IAdminRep
 
     public async Task<EnsureUserResponse?> GetUserByIdAsync(string userId)
     {
-        using var conn = connectionFactory.CreateConnection();
+        using var conn = Db();
         return await conn.QueryFirstOrDefaultAsync<EnsureUserResponse>(
             "sp_GetUserById", new { UserId = userId }, commandType: CommandType.StoredProcedure);
+    }
+
+    // ── Stamp Last Login ──
+
+    public async Task StampLastLoginAsync(string userId)
+    {
+        using var conn = Db();
+        await conn.ExecuteAsync(
+            "sp_StampLastLogin", new { UserId = userId }, commandType: CommandType.StoredProcedure);
+    }
+
+    // ── Dashboard Stats ──
+
+    public async Task<AdminDashboardStats> GetDashboardStatsAsync()
+    {
+        using var conn = Db();
+        return await conn.QuerySingleAsync<AdminDashboardStats>(
+            "sp_GetAdminDashboardStats", commandType: CommandType.StoredProcedure);
     }
 }

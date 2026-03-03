@@ -72,12 +72,15 @@ using (var scope = app.Services.CreateScope())
 
 // ── Middleware pipeline ──
 
-// Global exception handler — prevents stack traces / connection strings leaking to clients
+// Global exception handler
 app.UseExceptionHandler(error => error.Run(async context =>
 {
+    var ex = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
     context.Response.StatusCode = 500;
     context.Response.ContentType = "application/json";
-    await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred. Please try again." });
+    var msg = ex?.Message ?? "An unexpected error occurred.";
+    Console.Error.WriteLine($"[UNHANDLED] {ex?.GetType().Name}: {msg}");
+    await context.Response.WriteAsJsonAsync(new { error = msg });
 }));
 
 if (app.Environment.IsDevelopment())

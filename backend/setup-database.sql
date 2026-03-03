@@ -16,11 +16,11 @@
 -- ============================================================
 
 -- ── Step 1: Create Database ──
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'DMS_IssueTracker')
-    CREATE DATABASE DMS_IssueTracker;
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'IssuesTracker')
+    CREATE DATABASE IssuesTracker;
 GO
 
-USE DMS_IssueTracker;
+USE IssuesTracker;
 GO
 
 -- ============================================================
@@ -183,7 +183,7 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'MasterProcesses')
 CREATE TABLE MasterProcesses (
     Id           NVARCHAR(10)   PRIMARY KEY,
-    Name         NVARCHAR(200)  NOT NULL,
+    Name         NVARCHAR(200)  NOT NULL UNIQUE,
     Description  NVARCHAR(500)  NOT NULL DEFAULT '',
     DisplayOrder INT            NOT NULL DEFAULT 0,
     IsActive     BIT            NOT NULL DEFAULT 1
@@ -197,7 +197,8 @@ CREATE TABLE MasterTasks (
     Name         NVARCHAR(200)  NOT NULL,
     ProcessId    NVARCHAR(10)   NOT NULL REFERENCES MasterProcesses(Id),
     DisplayOrder INT            NOT NULL DEFAULT 0,
-    IsActive     BIT            NOT NULL DEFAULT 1
+    IsActive     BIT            NOT NULL DEFAULT 1,
+    CONSTRAINT UQ_MasterTasks_Name_Process UNIQUE (Name, ProcessId)
 );
 GO
 
@@ -208,8 +209,18 @@ CREATE TABLE MasterUsers (
     Name         NVARCHAR(200)  NOT NULL,
     Email        NVARCHAR(300)  NOT NULL,
     DisplayOrder INT            NOT NULL DEFAULT 0,
-    IsActive     BIT            NOT NULL DEFAULT 1
+    IsActive     BIT            NOT NULL DEFAULT 1,
+    CreatedAt    DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    LastLoginAt  DATETIME2      NULL
 );
+GO
+
+-- Add audit columns if table already exists
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MasterUsers') AND name = 'CreatedAt')
+    ALTER TABLE MasterUsers ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MasterUsers') AND name = 'LastLoginAt')
+    ALTER TABLE MasterUsers ADD LastLoginAt DATETIME2 NULL;
 GO
 
 -- ============================================================
@@ -302,7 +313,9 @@ CREATE OR ALTER PROCEDURE sp_UpdateIssue
     @AssigningDate    DATETIME2 = NULL,
     @DueDate          DATETIME2 = NULL,
     @CurrentVersion   INT,
-    @ReopenCount      INT
+    @ReopenCount      INT,
+    @ProcessId        NVARCHAR(100) = NULL,
+    @TaskId           NVARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -316,6 +329,8 @@ BEGIN
         DueDate          = @DueDate,
         CurrentVersion   = @CurrentVersion,
         ReopenCount      = @ReopenCount,
+        ProcessId        = ISNULL(@ProcessId, ProcessId),
+        TaskId           = ISNULL(@TaskId, TaskId),
         UpdatedAt        = SYSUTCDATETIME()
     WHERE Id = @Id;
 END
@@ -750,28 +765,43 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT Id, Name, ProcessId, DisplayOrder, IsActive
-    FROM MasterTasks ORDER BY DisplayOrder;
+    FROM MasterTasks ORDER BY Name;
 END
 GO
 
 CREATE OR ALTER PROCEDURE sp_CreateMasterTask
-    @Id NVARCHAR(10), @Name NVARCHAR(200),
-    @ProcessId NVARCHAR(10), @DisplayOrder INT
+    @Name NVARCHAR(200),
+    @ProcessId NVARCHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Auto-generate ID: T + (max existing number + 1)
+    DECLARE @MaxNum INT = 0;
+    SELECT @MaxNum = ISNULL(MAX(
+        CASE WHEN ISNUMERIC(SUBSTRING(Id, 2, LEN(Id)-1)) = 1
+             THEN CAST(SUBSTRING(Id, 2, LEN(Id)-1) AS INT)
+             ELSE 0 END
+    ), 0)
+    FROM MasterTasks
+    WHERE Id LIKE 'T%' AND LEN(Id) > 1;
+
+    DECLARE @NewId NVARCHAR(10) = 'T' + CAST(@MaxNum + 1 AS NVARCHAR);
+
     INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder, IsActive)
-    VALUES (@Id, @Name, @ProcessId, @DisplayOrder, 1);
+    VALUES (@NewId, @Name, @ProcessId, 0, 1);
+
+    SELECT @NewId AS Id;
 END
 GO
 
 CREATE OR ALTER PROCEDURE sp_UpdateMasterTask
     @Id NVARCHAR(10), @Name NVARCHAR(200),
-    @ProcessId NVARCHAR(10), @DisplayOrder INT
+    @ProcessId NVARCHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE MasterTasks SET Name=@Name, ProcessId=@ProcessId, DisplayOrder=@DisplayOrder
+    UPDATE MasterTasks SET Name=@Name, ProcessId=@ProcessId
     WHERE Id = @Id;
 END
 GO
@@ -790,29 +820,31 @@ CREATE OR ALTER PROCEDURE sp_GetAllMasterUsers
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT Id, Name, Email, DisplayOrder, IsActive
+    SELECT Id, Name, Email, DisplayOrder, IsActive, CreatedAt, LastLoginAt,
+           (SELECT COUNT(*) FROM Issues WHERE IssueRaisedBy = MasterUsers.Id) AS IssuesRaised
     FROM MasterUsers ORDER BY DisplayOrder;
 END
 GO
 
 CREATE OR ALTER PROCEDURE sp_CreateMasterUser
     @Id NVARCHAR(10), @Name NVARCHAR(200),
-    @Email NVARCHAR(300), @DisplayOrder INT
+    @Email NVARCHAR(300)
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @NextOrder INT = ISNULL((SELECT MAX(DisplayOrder) FROM MasterUsers), 0) + 1;
     INSERT INTO MasterUsers (Id, Name, Email, DisplayOrder, IsActive)
-    VALUES (@Id, @Name, @Email, @DisplayOrder, 1);
+    VALUES (@Id, @Name, @Email, @NextOrder, 1);
 END
 GO
 
 CREATE OR ALTER PROCEDURE sp_UpdateMasterUser
     @Id NVARCHAR(10), @Name NVARCHAR(200),
-    @Email NVARCHAR(300), @DisplayOrder INT
+    @Email NVARCHAR(300)
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE MasterUsers SET Name=@Name, Email=@Email, DisplayOrder=@DisplayOrder
+    UPDATE MasterUsers SET Name=@Name, Email=@Email
     WHERE Id = @Id;
 END
 GO
@@ -891,7 +923,7 @@ BEGIN
         VALUES (@UserId, @Name, @Email, @MaxOrder + 1, 1);
     END
     ELSE
-        UPDATE MasterUsers SET Name = @Name, Email = @Email WHERE Id = @UserId;
+        UPDATE MasterUsers SET Name = @Name, Email = @Email, LastLoginAt = SYSUTCDATETIME() WHERE Id = @UserId;
     -- Insert default permissions if not exists
     IF NOT EXISTS (SELECT 1 FROM UserPermissions WHERE UserId = @UserId)
         INSERT INTO UserPermissions (UserId, CanCreateIssue, CanEditIssue, CanResolveIssue, CanBulkUpload, CanAccessAdmin, IsBlocked)
@@ -906,11 +938,61 @@ BEGIN
 END
 GO
 
+-- ── Get User by ID (for admin enter-app) ──
+CREATE OR ALTER PROCEDURE sp_GetUserById
+    @UserId NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT u.Id, u.Name, u.Email, u.IsActive,
+           ISNULL(p.CanCreateIssue, 0)  AS CanCreateIssue,
+           ISNULL(p.CanEditIssue, 0)    AS CanEditIssue,
+           ISNULL(p.CanResolveIssue, 0) AS CanResolveIssue,
+           ISNULL(p.CanBulkUpload, 0)   AS CanBulkUpload,
+           ISNULL(p.CanAccessAdmin, 0)  AS CanAccessAdmin,
+           ISNULL(p.IsBlocked, 0)       AS IsBlocked
+    FROM MasterUsers u
+    LEFT JOIN UserPermissions p ON u.Id = p.UserId
+    WHERE u.Id = @UserId AND u.IsActive = 1;
+END
+GO
+
+-- ── Stamp Last Login ──
+CREATE OR ALTER PROCEDURE sp_StampLastLogin
+    @UserId NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE MasterUsers SET LastLoginAt = SYSUTCDATETIME() WHERE Id = @UserId;
+END
+GO
+
+-- ── Admin Dashboard Stats ──
+CREATE OR ALTER PROCEDURE sp_GetAdminDashboardStats
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        (SELECT COUNT(*) FROM MasterUsers) AS TotalUsers,
+        (SELECT COUNT(*) FROM MasterUsers WHERE IsActive = 1) AS ActiveUsers,
+        (SELECT COUNT(*) FROM UserPermissions WHERE IsBlocked = 1) AS BlockedUsers,
+        (SELECT COUNT(*) FROM Issues) AS TotalIssues,
+        (SELECT COUNT(*) FROM Issues WHERE Status NOT IN ('Resolved', 'Closed')) AS OpenIssues,
+        (SELECT COUNT(*) FROM Issues WHERE DueDate < SYSUTCDATETIME() AND Status NOT IN ('Resolved', 'Closed')) AS OverdueIssues,
+        (SELECT COUNT(*) FROM Issues WHERE Status IN ('Resolved', 'Closed')) AS ResolvedIssues,
+        (SELECT COUNT(*) FROM Issues WHERE Severity = 'Critical' AND Status NOT IN ('Resolved', 'Closed')) AS CriticalIssues,
+        (SELECT COUNT(*) FROM MasterStatuses WHERE IsActive = 1) AS ActiveStatuses,
+        (SELECT COUNT(*) FROM MasterSeverities WHERE IsActive = 1) AS ActiveSeverities,
+        (SELECT COUNT(*) FROM MasterProcesses WHERE IsActive = 1) AS ActiveProcesses,
+        (SELECT COUNT(*) FROM MasterTasks WHERE IsActive = 1) AS ActiveTasks;
+END
+GO
+
 -- ============================================================
 -- Setup complete!
--- Database: DMS_IssueTracker
+-- Database: IssuesTracker
 -- Tables:   15
--- Stored Procedures: 38
+-- Stored Procedures: 41
 -- ============================================================
-PRINT 'DMS_IssueTracker database setup completed successfully.';
+PRINT 'IssuesTracker database setup completed successfully.';
 GO

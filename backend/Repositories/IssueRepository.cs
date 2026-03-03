@@ -68,7 +68,9 @@ public class IssueRepository(IDbConnectionFactory connectionFactory) : IIssueRep
                 issue.AssigningDate,
                 issue.DueDate,
                 issue.CurrentVersion,
-                issue.ReopenCount
+                issue.ReopenCount,
+                issue.ProcessId,
+                issue.TaskId
             },
             commandType: CommandType.StoredProcedure);
     }

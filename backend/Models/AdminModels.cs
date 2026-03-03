@@ -83,6 +83,9 @@ public class AdminMasterUser
     public string Email { get; set; } = "";
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public int IssuesRaised { get; set; }
 }
 
 // ── Create/Update DTOs ──
@@ -96,11 +99,11 @@ public record UpdateSeverityRequest(string Name, string Label, string TextColor,
 public record CreateProcessRequest(string Id, string Name, string Description, int DisplayOrder);
 public record UpdateProcessRequest(string Name, string Description, int DisplayOrder);
 
-public record CreateTaskRequest(string Id, string Name, string ProcessId, int DisplayOrder);
-public record UpdateTaskRequest(string Name, string ProcessId, int DisplayOrder);
+public record CreateTaskRequest(string Name, string ProcessId);
+public record UpdateTaskRequest(string Name, string ProcessId);
 
-public record CreateUserRequest(string Id, string Name, string Email, int DisplayOrder);
-public record UpdateUserRequest(string Name, string Email, int DisplayOrder);
+public record CreateUserRequest(string Id, string Name, string Email);
+public record UpdateUserRequest(string Name, string Email);
 
 // ── Ensure User (auto-registration via EDP login) ──
 
@@ -118,6 +121,24 @@ public class EnsureUserResponse
     public bool CanBulkUpload { get; set; }
     public bool CanAccessAdmin { get; set; }
     public bool IsBlocked { get; set; }
+}
+
+// ── Admin Dashboard Stats ──
+
+public class AdminDashboardStats
+{
+    public int TotalUsers { get; set; }
+    public int ActiveUsers { get; set; }
+    public int BlockedUsers { get; set; }
+    public int TotalIssues { get; set; }
+    public int OpenIssues { get; set; }
+    public int OverdueIssues { get; set; }
+    public int ResolvedIssues { get; set; }
+    public int CriticalIssues { get; set; }
+    public int ActiveStatuses { get; set; }
+    public int ActiveSeverities { get; set; }
+    public int ActiveProcesses { get; set; }
+    public int ActiveTasks { get; set; }
 }
 
 // ── Admin Enter App (login as user from admin panel) ──

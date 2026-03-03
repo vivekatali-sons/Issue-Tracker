@@ -33,12 +33,22 @@ public static class AdminEndpoints
             if (user.IsBlocked)
                 return Results.Json(new { blocked = true, message = "Your account has been blocked. Contact admin." }, statusCode: 403);
 
+            // Stamp last login
+            await adminRepo.StampLastLoginAsync(empId);
+
             // Issue a session token for subsequent API calls
             var sessionToken = SessionStore.Create(user.Id);
             return Results.Ok(new { user, sessionToken });
         }).WithTags("Auth");
 
         var group = app.MapGroup("/api/admin").WithTags("Admin");
+
+        // ── Dashboard Stats ──
+        group.MapGet("/dashboard-stats", async (HttpContext ctx, IAdminService svc, IAdminRepository repo) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            return Results.Ok(await repo.GetDashboardStatsAsync());
+        });
 
         // ── Auth ──
         group.MapPost("/login", async (AdminLoginRequest req, IAdminService svc) =>
@@ -63,7 +73,7 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/statuses/{id}", new { id });
         });
 
-        group.MapPut("/statuses/{id:int}", async (int id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateStatusRequest req) =>
+        group.MapPost("/statuses/{id:int}/update", async (int id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateStatusRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpdateStatusAsync(id, req);
@@ -91,7 +101,7 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/severities/{id}", new { id });
         });
 
-        group.MapPut("/severities/{id:int}", async (int id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateSeverityRequest req) =>
+        group.MapPost("/severities/{id:int}/update", async (int id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateSeverityRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpdateSeverityAsync(id, req);
@@ -119,7 +129,7 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/processes/{req.Id}", new { id = req.Id });
         });
 
-        group.MapPut("/processes/{id}", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateProcessRequest req) =>
+        group.MapPost("/processes/{id}/update", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateProcessRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpdateProcessAsync(id, req);
@@ -143,11 +153,11 @@ public static class AdminEndpoints
         group.MapPost("/tasks", async (HttpContext ctx, IAdminService svc, IAdminRepository repo, CreateTaskRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
-            await repo.CreateTaskAsync(req);
-            return Results.Created($"/api/admin/tasks/{req.Id}", new { id = req.Id });
+            var id = await repo.CreateTaskAsync(req);
+            return Results.Created($"/api/admin/tasks/{id}", new { id });
         });
 
-        group.MapPut("/tasks/{id}", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateTaskRequest req) =>
+        group.MapPost("/tasks/{id}/update", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateTaskRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpdateTaskAsync(id, req);
@@ -175,7 +185,7 @@ public static class AdminEndpoints
             return Results.Created($"/api/admin/users/{req.Id}", new { id = req.Id });
         });
 
-        group.MapPut("/users/{id}", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateUserRequest req) =>
+        group.MapPost("/users/{id}/update", async (string id, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateUserRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpdateUserAsync(id, req);
@@ -237,7 +247,7 @@ public static class AdminEndpoints
             return perm is null ? Results.NotFound() : Results.Ok(perm);
         });
 
-        group.MapPut("/permissions/{userId}", async (string userId, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateUserPermissionsRequest req) =>
+        group.MapPost("/permissions/{userId}/update", async (string userId, HttpContext ctx, IAdminService svc, IAdminRepository repo, UpdateUserPermissionsRequest req) =>
         {
             if (!Authorize(ctx, svc)) return Results.Unauthorized();
             await repo.UpsertUserPermissionsAsync(userId, req);

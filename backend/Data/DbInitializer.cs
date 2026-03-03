@@ -202,8 +202,14 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                 Name         NVARCHAR(200)  NOT NULL,
                 Email        NVARCHAR(300)  NOT NULL,
                 DisplayOrder INT            NOT NULL DEFAULT 0,
-                IsActive     BIT            NOT NULL DEFAULT 1
+                IsActive     BIT            NOT NULL DEFAULT 1,
+                CreatedAt    DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+                LastLoginAt  DATETIME2      NULL
             );
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MasterUsers') AND name = 'CreatedAt')
+                ALTER TABLE MasterUsers ADD CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MasterUsers') AND name = 'LastLoginAt')
+                ALTER TABLE MasterUsers ADD LastLoginAt DATETIME2 NULL;
             """);
 
         // ── Admin Tables ──
@@ -296,7 +302,9 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                 @AssigningDate    DATETIME2 = NULL,
                 @DueDate          DATETIME2 = NULL,
                 @CurrentVersion   INT,
-                @ReopenCount      INT
+                @ReopenCount      INT,
+                @ProcessId        NVARCHAR(100) = NULL,
+                @TaskId           NVARCHAR(100) = NULL
             AS
             BEGIN
                 SET NOCOUNT ON;
@@ -310,6 +318,8 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                     DueDate          = @DueDate,
                     CurrentVersion   = @CurrentVersion,
                     ReopenCount      = @ReopenCount,
+                    ProcessId        = ISNULL(@ProcessId, ProcessId),
+                    TaskId           = ISNULL(@TaskId, TaskId),
                     UpdatedAt        = SYSUTCDATETIME()
                 WHERE Id = @Id;
             END
@@ -600,7 +610,7 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                 SELECT Id, Name, ProcessId, DisplayOrder, IsActive
                 FROM MasterTasks
                 WHERE IsActive = 1
-                ORDER BY DisplayOrder;
+                ORDER BY Name;
             END
             """);
 
@@ -775,30 +785,40 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
             BEGIN
                 SET NOCOUNT ON;
                 SELECT Id, Name, ProcessId, DisplayOrder, IsActive
-                FROM MasterTasks ORDER BY DisplayOrder;
+                FROM MasterTasks ORDER BY Name;
             END
             """);
 
         await CreateOrAlterProcAsync(connection, "sp_CreateMasterTask", """
             CREATE OR ALTER PROCEDURE sp_CreateMasterTask
-                @Id NVARCHAR(10), @Name NVARCHAR(200),
-                @ProcessId NVARCHAR(10), @DisplayOrder INT
+                @Name NVARCHAR(200),
+                @ProcessId NVARCHAR(10)
             AS
             BEGIN
                 SET NOCOUNT ON;
+                DECLARE @MaxNum INT = 0;
+                SELECT @MaxNum = ISNULL(MAX(
+                    CASE WHEN ISNUMERIC(SUBSTRING(Id, 2, LEN(Id)-1)) = 1
+                         THEN CAST(SUBSTRING(Id, 2, LEN(Id)-1) AS INT)
+                         ELSE 0 END
+                ), 0)
+                FROM MasterTasks
+                WHERE Id LIKE 'T%' AND LEN(Id) > 1;
+                DECLARE @NewId NVARCHAR(10) = 'T' + CAST(@MaxNum + 1 AS NVARCHAR);
                 INSERT INTO MasterTasks (Id, Name, ProcessId, DisplayOrder, IsActive)
-                VALUES (@Id, @Name, @ProcessId, @DisplayOrder, 1);
+                VALUES (@NewId, @Name, @ProcessId, 0, 1);
+                SELECT @NewId AS Id;
             END
             """);
 
         await CreateOrAlterProcAsync(connection, "sp_UpdateMasterTask", """
             CREATE OR ALTER PROCEDURE sp_UpdateMasterTask
                 @Id NVARCHAR(10), @Name NVARCHAR(200),
-                @ProcessId NVARCHAR(10), @DisplayOrder INT
+                @ProcessId NVARCHAR(10)
             AS
             BEGIN
                 SET NOCOUNT ON;
-                UPDATE MasterTasks SET Name=@Name, ProcessId=@ProcessId, DisplayOrder=@DisplayOrder
+                UPDATE MasterTasks SET Name=@Name, ProcessId=@ProcessId
                 WHERE Id = @Id;
             END
             """);
@@ -818,7 +838,8 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
             AS
             BEGIN
                 SET NOCOUNT ON;
-                SELECT Id, Name, Email, DisplayOrder, IsActive
+                SELECT Id, Name, Email, DisplayOrder, IsActive, CreatedAt, LastLoginAt,
+                       (SELECT COUNT(*) FROM Issues WHERE IssueRaisedBy = MasterUsers.Id) AS IssuesRaised
                 FROM MasterUsers ORDER BY DisplayOrder;
             END
             """);
@@ -826,23 +847,24 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
         await CreateOrAlterProcAsync(connection, "sp_CreateMasterUser", """
             CREATE OR ALTER PROCEDURE sp_CreateMasterUser
                 @Id NVARCHAR(10), @Name NVARCHAR(200),
-                @Email NVARCHAR(300), @DisplayOrder INT
+                @Email NVARCHAR(300)
             AS
             BEGIN
                 SET NOCOUNT ON;
+                DECLARE @NextOrder INT = ISNULL((SELECT MAX(DisplayOrder) FROM MasterUsers), 0) + 1;
                 INSERT INTO MasterUsers (Id, Name, Email, DisplayOrder, IsActive)
-                VALUES (@Id, @Name, @Email, @DisplayOrder, 1);
+                VALUES (@Id, @Name, @Email, @NextOrder, 1);
             END
             """);
 
         await CreateOrAlterProcAsync(connection, "sp_UpdateMasterUser", """
             CREATE OR ALTER PROCEDURE sp_UpdateMasterUser
                 @Id NVARCHAR(10), @Name NVARCHAR(200),
-                @Email NVARCHAR(300), @DisplayOrder INT
+                @Email NVARCHAR(300)
             AS
             BEGIN
                 SET NOCOUNT ON;
-                UPDATE MasterUsers SET Name=@Name, Email=@Email, DisplayOrder=@DisplayOrder
+                UPDATE MasterUsers SET Name=@Name, Email=@Email
                 WHERE Id = @Id;
             END
             """);
@@ -943,7 +965,7 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                     VALUES (@UserId, @Name, @Email, @MaxOrder + 1, 1);
                 END
                 ELSE
-                    UPDATE MasterUsers SET Name = @Name, Email = @Email WHERE Id = @UserId;
+                    UPDATE MasterUsers SET Name = @Name, Email = @Email, LastLoginAt = SYSUTCDATETIME() WHERE Id = @UserId;
                 -- Insert default permissions if not exists
                 IF NOT EXISTS (SELECT 1 FROM UserPermissions WHERE UserId = @UserId)
                     INSERT INTO UserPermissions (UserId, CanCreateIssue, CanEditIssue, CanResolveIssue, CanBulkUpload, CanAccessAdmin, IsBlocked)
@@ -955,6 +977,37 @@ public class DbInitializer(IDbConnectionFactory connectionFactory, ILogger<DbIni
                 FROM MasterUsers u
                 INNER JOIN UserPermissions p ON p.UserId = u.Id
                 WHERE u.Id = @UserId;
+            END
+            """);
+
+        await CreateOrAlterProcAsync(connection, "sp_StampLastLogin", """
+            CREATE OR ALTER PROCEDURE sp_StampLastLogin
+                @UserId NVARCHAR(10)
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+                UPDATE MasterUsers SET LastLoginAt = SYSUTCDATETIME() WHERE Id = @UserId;
+            END
+            """);
+
+        await CreateOrAlterProcAsync(connection, "sp_GetAdminDashboardStats", """
+            CREATE OR ALTER PROCEDURE sp_GetAdminDashboardStats
+            AS
+            BEGIN
+                SET NOCOUNT ON;
+                SELECT
+                    (SELECT COUNT(*) FROM MasterUsers) AS TotalUsers,
+                    (SELECT COUNT(*) FROM MasterUsers WHERE IsActive = 1) AS ActiveUsers,
+                    (SELECT COUNT(*) FROM UserPermissions WHERE IsBlocked = 1) AS BlockedUsers,
+                    (SELECT COUNT(*) FROM Issues) AS TotalIssues,
+                    (SELECT COUNT(*) FROM Issues WHERE Status NOT IN ('Resolved', 'Closed')) AS OpenIssues,
+                    (SELECT COUNT(*) FROM Issues WHERE DueDate < SYSUTCDATETIME() AND Status NOT IN ('Resolved', 'Closed')) AS OverdueIssues,
+                    (SELECT COUNT(*) FROM Issues WHERE Status IN ('Resolved', 'Closed')) AS ResolvedIssues,
+                    (SELECT COUNT(*) FROM Issues WHERE Severity = 'Critical' AND Status NOT IN ('Resolved', 'Closed')) AS CriticalIssues,
+                    (SELECT COUNT(*) FROM MasterStatuses WHERE IsActive = 1) AS ActiveStatuses,
+                    (SELECT COUNT(*) FROM MasterSeverities WHERE IsActive = 1) AS ActiveSeverities,
+                    (SELECT COUNT(*) FROM MasterProcesses WHERE IsActive = 1) AS ActiveProcesses,
+                    (SELECT COUNT(*) FROM MasterTasks WHERE IsActive = 1) AS ActiveTasks;
             END
             """);
 

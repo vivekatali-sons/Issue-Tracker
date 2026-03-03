@@ -1,9 +1,9 @@
 # =========================
-# Exclude non-source folders
+# Non-source / build folders
 # =========================
 Deployment/
+deployment/
 Archive/
-frontend/
 scripts/
 .claude/
 
@@ -13,6 +13,7 @@ scripts/
 backend/bin/
 backend/obj/
 backend/publish/
+backend/publish-new/
 backend/.vs/
 *.user
 *.suo
@@ -22,15 +23,24 @@ backend/.vs/
 # =========================
 # Frontend (React + Vite)
 # =========================
-frontend-react/node_modules/
-frontend-react/dist/
-frontend-react/.env*
-frontend-react/*.tsbuildinfo
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env*
+frontend/*.tsbuildinfo
 
 # =========================
 # Docker
 # =========================
 backend/sqldata/
+
+# =========================
+# Temp / test files
+# =========================
+test-csvs/
+*.zip
+bulk-upload-errors*.csv
+fix-issues-and-rename.sql
 
 # =========================
 # IDE / OS

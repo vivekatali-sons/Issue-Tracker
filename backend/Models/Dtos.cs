@@ -32,6 +32,8 @@ public record UpdateIssueRequest(
     DateTime? AssigningDate,
     DateTime? DueDate,
     string? Severity,
+    string? ProcessId = null,
+    string? TaskId = null,
     string? ModifiedBy = null
 );
 
@@ -83,7 +85,8 @@ public record IssueListItem(
 public record BulkUploadRowError(
     int RowNumber,
     string? SrNumber,
-    List<string> Errors
+    List<string> Errors,
+    Dictionary<string, string?>? RowData = null
 );
 
 public record BulkUploadResult(
