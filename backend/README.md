@@ -1,6 +1,6 @@
-# DMS Issue Tracker API
+# DMS Issue Tracker
 
-Backend REST API for the Ali & Sons DMS (Dealer Management System) Issue Tracker. Built with .NET 10 Minimal API, Dapper micro-ORM, and SQL Server. All database operations are executed through stored procedures.
+Full-stack issue tracking application for Ali & Sons DMS (Dealer Management System). Built with .NET 10 Minimal API + Dapper backend and React (Vite) + Tailwind CSS + shadcn/ui frontend. All database operations are executed through stored procedures.
 
 ---
 
@@ -60,8 +60,8 @@ The API will be available at `http://localhost:4000`. On first startup it auto-c
 ```
 +-----------+       HTTP/JSON       +------------------+       Stored Procs       +-------------------+
 |           |  -------------------> |                  |  --------------------->  |                   |
-|  Next.js  |       REST API        |  .NET 10 API     |       Dapper + SP        |  SQL Server 2022  |
-|  Frontend |  <------------------- |  (Minimal API)   |  <---------------------  |  (Docker)         |
+|  React    |       REST API        |  .NET 10 API     |       Dapper + SP        |  SQL Server 2022  |
+|  (Vite)   |  <------------------- |  (Minimal API)   |  <---------------------  |  (Docker)         |
 |           |                       |                  |                          |                   |
 +-----------+                       +------------------+                          +-------------------+
   Port 3000                           Port 4000                                    Port 1433
@@ -468,6 +468,8 @@ All 20 stored procedures are deployed automatically on application startup via `
 
 Base URL: `http://localhost:4000`
 
+### Issue Endpoints
+
 | Method | Route                      | Operation      | Request Body          | Response                     |
 |--------|----------------------------|----------------|-----------------------|------------------------------|
 | GET    | /api/issues                | List all       | -                     | 200: IssueListItem[]         |
@@ -475,10 +477,57 @@ Base URL: `http://localhost:4000`
 | POST   | /api/issues                | Create         | CreateIssueRequest    | 201: { id: int }             |
 | PATCH  | /api/issues/{id}           | Update         | UpdateIssueRequest    | 204: No Content              |
 | DELETE | /api/issues/{id}           | Delete         | -                     | 204: No Content              |
+| POST   | /api/issues/{id}/delete    | Delete (IIS)   | -                     | 204: No Content              |
 | POST   | /api/issues/{id}/resolve   | Resolve        | ResolveIssueRequest   | 200: { message: string }     |
 | POST   | /api/issues/{id}/reopen    | Reopen         | ReopenIssueRequest    | 200: { message: string }     |
+| POST   | /api/issues/bulk           | CSV Import     | multipart/form-data   | 200: { created, errors }     |
 
-All endpoints return `404 Not Found` when the issue does not exist (for single-resource operations).
+### Auth Endpoints
+
+| Method | Route                      | Operation      | Request Body          | Response                     |
+|--------|----------------------------|----------------|-----------------------|------------------------------|
+| POST   | /api/auth/verify-token     | EDP SSO verify | { token }             | 200: { user, sessionToken }  |
+
+### Admin Endpoints
+
+| Method | Route                              | Operation           | Request Body          | Response                     |
+|--------|-------------------------------------|---------------------|-----------------------|------------------------------|
+| POST   | /api/admin/login                   | Admin login         | { username, password }| 200: { token, username }     |
+| GET    | /api/admin/dashboard-stats         | Dashboard stats     | -                     | 200: AdminDashboardStats     |
+| GET    | /api/admin/statuses                | List statuses       | -                     | 200: AdminStatus[]           |
+| POST   | /api/admin/statuses                | Create status       | { name, chartColor }  | 201: { id }                  |
+| POST   | /api/admin/statuses/{id}/update    | Update status       | { name, chartColor }  | 204                          |
+| DELETE | /api/admin/statuses/{id}           | Delete status       | -                     | 204                          |
+| GET    | /api/admin/severities              | List severities     | -                     | 200: AdminSeverity[]         |
+| POST   | /api/admin/severities              | Create severity     | { name }              | 201: { id }                  |
+| POST   | /api/admin/severities/{id}/update  | Update severity     | { name }              | 204                          |
+| DELETE | /api/admin/severities/{id}         | Delete severity     | -                     | 204                          |
+| GET    | /api/admin/processes               | List processes      | -                     | 200: AdminProcess[]          |
+| POST   | /api/admin/processes               | Create process      | { name }              | 200                          |
+| POST   | /api/admin/processes/{id}/update   | Update process      | { name }              | 204                          |
+| DELETE | /api/admin/processes/{id}          | Delete process      | -                     | 204                          |
+| GET    | /api/admin/tasks                   | List tasks          | -                     | 200: AdminTask[]             |
+| POST   | /api/admin/tasks                   | Create task         | { name, processId }   | 201: { id }                  |
+| POST   | /api/admin/tasks/{id}/update       | Update task         | { name, processId }   | 204                          |
+| DELETE | /api/admin/tasks/{id}              | Delete task         | -                     | 204                          |
+| GET    | /api/admin/users                   | List users          | -                     | 200: AdminUser[]             |
+| POST   | /api/admin/users                   | Create user         | { id, name, email }   | 200                          |
+| POST   | /api/admin/users/{id}/update       | Update user         | { name, email, ... }  | 204                          |
+| DELETE | /api/admin/users/{id}              | Delete user         | -                     | 204                          |
+| GET    | /api/admin/permissions             | List permissions    | -                     | 200: UserPermission[]        |
+| GET    | /api/admin/permissions/{userId}    | Get user permission | -                     | 200: UserPermission          |
+| POST   | /api/admin/permissions/{userId}/update | Update permission | { canCreate, ... } | 204                          |
+| POST   | /api/admin/enter-app               | Login as user       | { userId }            | 200: { user, sessionToken }  |
+| GET    | /api/admin/employees/search        | Search EDP employees| ?q=query              | 200: Employee[]              |
+| POST   | /api/admin/employees/add           | Add EDP employee    | { empId }             | 200                          |
+
+### Master Data Endpoints
+
+| Method | Route              | Operation      | Response                     |
+|--------|--------------------|----------------|------------------------------|
+| GET    | /api/master        | Get all master | 200: { statuses, severities, processes, tasks, users } |
+
+All endpoints return `404 Not Found` when the resource does not exist. Issue endpoints require a valid `X-Session-Token` header. Admin endpoints require a valid `X-Admin-Token` header (except login).
 
 ---
 
@@ -785,32 +834,29 @@ npm install
 npm run dev
 ```
 
-The frontend runs on `http://localhost:3000` and expects the API at `http://localhost:4000` (configured in `frontend/.env.local`).
+The frontend runs on `http://localhost:3000` and expects the API at `http://localhost:4000` (configured in `frontend/public/config.json`).
 
 ### Authentication (EDP SSO)
 
-The app authenticates users via the EDP Portal (`https://edp.ali-sons.com/`). The portal redirects back with `emp_id` and `email` query params.
+The app authenticates users via the **EDP Portal** (`https://edp.ali-sons.com/`). The flow is token-based:
 
-To login directly during development, open the app with query params:
+1. User opens the app → no session → redirected to EDP Portal
+2. EDP authenticates user → redirects back with `?auth=TOKEN`
+3. Frontend calls `POST /api/auth/verify-token` with the token
+4. Backend verifies token against Intranet DB → returns user + session token
+5. All subsequent API calls include `X-Session-Token` header
 
-```
-http://localhost:3000/?emp_id=u1&email=intwebres1@company.com
-```
+Users must be pre-registered in MasterUsers table by an admin before they can log in.
 
-Available test users:
+The session is stored in `sessionStorage` — it persists until the tab is closed.
 
-| emp_id | Name               | Email                          |
-|--------|--------------------|--------------------------------|
-| u1     | Int Web Resource 1 | intwebres1@company.com         |
-| u2     | Int Web Resource 2 | intwebres2@company.com         |
-| u3     | Int Web Resource 3 | intwebres3@company.com         |
-| u4     | Ext Web Resource 1 | extwebres1@company.com         |
-| u5     | Oracle Functional  | oracle.functional@company.com  |
-| u6     | Sohail             | sohail@company.com             |
-| u7     | Junaid             | junaid@company.com             |
-| u8     | Syed               | syed@company.com               |
+### Admin Portal
 
-The session is stored in `sessionStorage` — it persists until the tab is closed. If no session or params are found, the user is redirected to the EDP portal.
+Access at `/admin/login` with username/password authentication. Admin features:
+- Manage Statuses, Severities, Processes, Tasks, Users
+- Granular permissions (create, edit, delete, export, import, view reports)
+- "Login as user" to test user experience
+- Dashboard with system stats
 
 ---
 
@@ -918,22 +964,30 @@ nssm start DMS-API
 
 ### Step 3: Frontend (Static Files)
 
-The frontend is a **static export** — no Node.js runtime needed on the server.
+The frontend is a **Vite React SPA** — no Node.js runtime needed on the server.
 
 ```bash
 cd frontend
 npm install
 npm run build
-# Output: frontend/out/ — static HTML/CSS/JS files
+# Output: frontend/dist/ — static HTML/CSS/JS files
 ```
 
-Deploy the `out/` folder contents to IIS:
+Deploy the `dist/` folder contents to IIS:
 
-1. Copy `out/` contents to your IIS site directory (e.g., `C:\inetpub\wwwroot\issuetracker`)
+1. Copy `dist/` contents to your IIS site directory
 2. Point IIS site root to that folder
-3. Access at: `https://issuetracker.ali-sons.com/`
 
-> **Note:** The API URL (`NEXT_PUBLIC_API_URL`) is baked in at build time. If the API URL changes, rebuild the frontend with the updated `.env.production`.
+**Runtime configuration** via `config.json` (no rebuild needed to change URLs):
+
+```json
+{
+  "API_URL": "https://asdev.ali-sons.com:4446/api",
+  "EDP_PORTAL_URL": "https://edp.ali-sons.com/pages/reroute/dmsissuetrackerdev"
+}
+```
+
+Place `config.json` in the root of the deployed frontend folder. The app fetches it at runtime.
 
 ### Step 4: Authentication (EDP SSO)
 
@@ -941,30 +995,14 @@ The app authenticates users via the **EDP Portal** (`https://edp.ali-sons.com/`)
 
 **How it works:**
 
-1. User opens `https://issuetracker.ali-sons.com/`
-2. No active session → app redirects to EDP portal
-3. EDP authenticates the user → redirects back with query params:
-   ```
-   https://issuetracker.ali-sons.com/?emp_id=EMPLOYEE_ID&email=USER_EMAIL
-   ```
-4. App reads params → creates session → user is logged in
+1. User opens the app
+2. No active session → app redirects to EDP Portal (URL from `config.json`)
+3. EDP authenticates user → redirects back with `?auth=TOKEN`
+4. Frontend calls `POST /api/auth/verify-token` with the token
+5. Backend verifies token against Intranet DB, returns user + session token
+6. All subsequent API calls include `X-Session-Token` header
 
-**EDP Portal configuration required:**
-
-The EDP portal must redirect authenticated users to the Issue Tracker with these query params:
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `emp_id`  | Employee ID | `u6` |
-| `email`   | Employee email | `sohail@company.com` |
-
-> **Without this EDP configuration, users will keep getting redirected to EDP in a loop.**
-
-**Testing without EDP:** Open the URL with params directly:
-
-```
-https://issuetracker.ali-sons.com/?emp_id=u6&email=sohail@company.com
-```
+> **Users must be pre-registered** in MasterUsers by an admin before they can log in.
 
 Session is stored in `sessionStorage` — persists until the tab is closed.
 
@@ -983,11 +1021,28 @@ If frontend and backend are on different domains/ports, the API will reject requ
 | Issue | Solution |
 |-------|----------|
 | API won't start | Check connection string in `appsettings.Production.json`. Ensure SQL Server is reachable. |
-| Frontend shows network errors | Verify `NEXT_PUBLIC_API_URL` points to the correct backend URL |
+| Frontend shows network errors | Verify `API_URL` in `config.json` points to the correct backend URL (e.g., `https://asdev.ali-sons.com:4446/api`) |
 | CORS errors in browser | Update `AllowedOrigins` to include the frontend URL |
-| App keeps redirecting to EDP | EDP portal not configured to pass `emp_id` and `email` params. Test with: `?emp_id=u6&email=sohail@company.com` |
+| App keeps redirecting to EDP | EDP portal not configured to redirect with `?auth=TOKEN`. Ensure the EDP reroute page is set up for this app. |
 | Database permission errors | Run `setup-database.sql` manually as `sa`, or grant the API user CREATE TABLE + CREATE PROCEDURE permissions |
 | Port already in use | Change `ApiPort` in appsettings |
+
+---
+
+## Production URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend (Dev) | `https://asdev.ali-sons.com:4446` (served via IIS) |
+| Backend API | `https://asdev.ali-sons.com:4446/api` |
+| EDP Portal SSO | `https://edp.ali-sons.com/pages/reroute/dmsissuetrackerdev` |
+| Admin Portal | `https://asdev.ali-sons.com:4446/admin/login` |
+
+### Known Limitations (Planned for Next Cycle)
+
+- **No audit trail** — No centralized log of user actions (login, create, update, delete)
+- **Hard delete** — Issues are permanently deleted with no recovery. Planned: soft delete with `IsDeleted`, `DeletedAt`, `DeletedBy`
+- **No delete tracking** — No record of who deleted what or when
 
 ---
 
