@@ -38,8 +38,10 @@ function AllIssuesContent() {
   const isOverdueFilter = searchParams.get("overdue") === "true";
   const isDueThisWeekFilter = searchParams.get("dueThisWeek") === "true";
   const statusParam = searchParams.get("status") as Status | null;
+  const processParam = searchParams.get("process");
+  const monthParam = searchParams.get("month"); // YYYY-MM format
 
-  const hasUrlFilter = isReopenedFilter || isOverdueFilter || isDueThisWeekFilter || !!statusParam;
+  const hasUrlFilter = isReopenedFilter || isOverdueFilter || isDueThisWeekFilter || !!statusParam || !!processParam || !!monthParam;
 
   // Compute initial date range from URL params (for "Due This Week" drill-down)
   const initialDateRange = useMemo<DateRange | undefined>(() => {
@@ -58,9 +60,15 @@ function AllIssuesContent() {
       ? "Due This Week"
       : isReopenedFilter
         ? "Reopened Issues"
-        : statusParam
-          ? `Status: ${statusParam}`
-          : null;
+        : monthParam
+          ? `Month: ${new Date(monthParam + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })}`
+          : (statusParam && processParam)
+            ? `${getProcessName(processParam)} — ${statusParam}`
+            : statusParam
+              ? `Status: ${statusParam}`
+              : processParam
+                ? `Process: ${getProcessName(processParam)}`
+                : null;
 
   const activeFilterIcon = isOverdueFilter
     ? <AlertTriangle className="h-4 w-4" />
@@ -81,6 +89,8 @@ function AllIssuesContent() {
   const state = useIssuesListState({
     issues,
     initialStatus: statusParam ?? undefined,
+    initialProcess: processParam ?? undefined,
+    initialMonth: monthParam ?? undefined,
     initialOverdue: isOverdueFilter,
     initialReopened: isReopenedFilter,
     initialDateRange,

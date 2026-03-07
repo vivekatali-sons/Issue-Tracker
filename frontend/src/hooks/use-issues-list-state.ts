@@ -10,6 +10,8 @@ export type SortField = "title" | "process" | "owner" | "severity" | "status" | 
 interface UseIssuesListStateOptions {
   issues: Issue[];
   initialStatus?: string;
+  initialProcess?: string;
+  initialMonth?: string; // YYYY-MM
   initialOverdue?: boolean;
   initialReopened?: boolean;
   initialDateRange?: DateRange;
@@ -18,6 +20,8 @@ interface UseIssuesListStateOptions {
 export function useIssuesListState({
   issues,
   initialStatus,
+  initialProcess,
+  initialMonth,
   initialOverdue = false,
   initialReopened = false,
   initialDateRange,
@@ -28,17 +32,17 @@ export function useIssuesListState({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus ?? "all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
-  const [processFilter, setProcessFilter] = useState<string>("all");
+  const [processFilter, setProcessFilter] = useState<string>(initialProcess ?? "all");
   const [dateRange, setDateRange] = useState<DateRange>(initialDateRange ?? {});
 
   // Sync URL-driven params when navigation changes (useState only uses initial value on first mount)
   useEffect(() => {
     setStatusFilter(initialStatus ?? "all");
     setSeverityFilter("all");
-    setProcessFilter("all");
+    setProcessFilter(initialProcess ?? "all");
     setSearch("");
     setDateRange(initialDateRange ?? {});
-  }, [initialStatus, initialOverdue, initialReopened, initialDateRange]);
+  }, [initialStatus, initialProcess, initialMonth, initialOverdue, initialReopened, initialDateRange]);
 
   // Sort state
   const [sortBy, setSortBy] = useState<SortField>("dueDate");
@@ -126,9 +130,16 @@ export function useIssuesListState({
     if (initialReopened) {
       result = result.filter((i) => i.reopenCount > 0);
     }
+    if (initialMonth) {
+      const [y, m] = initialMonth.split("-").map(Number);
+      result = result.filter((i) => {
+        const d = new Date(i.createdAt);
+        return d.getFullYear() === y && d.getMonth() === m - 1;
+      });
+    }
 
     return result;
-  }, [issues, search, statusFilter, severityFilter, processFilter, dateRange, initialOverdue, initialReopened]);
+  }, [issues, search, statusFilter, severityFilter, processFilter, dateRange, initialOverdue, initialReopened, initialMonth]);
 
   // KPI counts (derived from filtered issues so they update with dropdown filters)
   const kpiCounts = useMemo(() => {

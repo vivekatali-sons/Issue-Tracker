@@ -1,11 +1,13 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Cell, Pie, PieChart } from "recharts";
+import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { StatusBadge } from "@/components/issues/status-badge";
 import { useMasterData } from "@/hooks/use-master-data";
+import { useTheme } from "@/hooks/use-theme";
+import { STATUS_CHART_DARK_OVERRIDES } from "@/lib/colors";
 import type { Issue } from "@/lib/types";
 
 const chartConfig = {
@@ -18,6 +20,8 @@ interface StatusSummaryProps {
 
 export function StatusSummary({ issues }: StatusSummaryProps) {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const { statuses: masterStatuses } = useMasterData();
   const total = issues.length;
 
@@ -26,10 +30,10 @@ export function StatusSummary({ issues }: StatusSummaryProps) {
       .map((s) => ({
         name: s.name,
         value: issues.filter((i) => i.status === s.name).length,
-        fill: s.chartColor,
+        fill: isDark ? (STATUS_CHART_DARK_OVERRIDES[s.chartColor] ?? s.chartColor) : s.chartColor,
       }))
       .filter((d) => d.value > 0);
-  }, [issues, masterStatuses]);
+  }, [issues, masterStatuses, isDark]);
 
   return (
     <Card className="shadow-sm">
@@ -52,11 +56,32 @@ export function StatusSummary({ issues }: StatusSummaryProps) {
                   paddingAngle={2}
                   dataKey="value"
                   stroke="none"
+                  style={{ cursor: "pointer" }}
+                  onClick={(_: any, index: number) => {
+                    const entry = pieData[index];
+                    if (entry) navigate(`/issues?status=${encodeURIComponent(entry.name)}`);
+                  }}
                 >
                   {pieData.map((entry) => (
                     <Cell key={entry.name} fill={entry.fill} />
                   ))}
                 </Pie>
+                <Tooltip
+                  content={({ payload }) => {
+                    if (!payload?.[0]) return null;
+                    const { name, value, fill } = payload[0].payload;
+                    const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                    return (
+                      <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-md">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: fill }} />
+                          <span className="font-medium">{name}</span>
+                        </div>
+                        <div className="mt-1 text-muted-foreground">{value} issues ({pct}%)</div>
+                      </div>
+                    );
+                  }}
+                />
                 <text
                   x="50%"
                   y="48%"
@@ -86,6 +111,7 @@ export function StatusSummary({ issues }: StatusSummaryProps) {
             const count = issues.filter((i) => i.status === s.name).length;
             if (count === 0) return null;
             const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            const dotColor = isDark ? (STATUS_CHART_DARK_OVERRIDES[s.chartColor] ?? s.chartColor) : s.chartColor;
 
             return (
               <button
@@ -96,7 +122,7 @@ export function StatusSummary({ issues }: StatusSummaryProps) {
                 <div className="flex items-center gap-2">
                   <div
                     className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: s.chartColor }}
+                    style={{ backgroundColor: dotColor }}
                   />
                   <StatusBadge status={s.name} />
                 </div>

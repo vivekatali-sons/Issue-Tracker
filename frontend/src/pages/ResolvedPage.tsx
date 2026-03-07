@@ -63,37 +63,37 @@ function ResolvedIssuesContent() {
         <StatCard
           title="Total"
           value={kpis.total}
-          icon={<CheckCircle2 className="h-4 w-4 text-slate-500" />}
+          icon={<CheckCircle2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />}
           accentColor="bg-slate-500"
-          numberColor="text-slate-800"
-          className="bg-slate-50/40"
+          numberColor="text-slate-800 dark:text-slate-100"
+          className="bg-slate-50/40 stat-glow-slate"
           onClick={() => state.clearFilters()}
         />
         <StatCard
           title="Resolved"
           value={kpis.resolved}
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+          icon={<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
           accentColor="bg-emerald-600"
-          numberColor="text-emerald-900"
-          className="bg-emerald-50/40"
+          numberColor="text-emerald-900 dark:text-emerald-300"
+          className="bg-emerald-50/40 stat-glow-emerald"
           onClick={() => { state.clearFilters(); state.setStatusFilter("Resolved"); }}
         />
         <StatCard
           title="Closed"
           value={kpis.closed}
-          icon={<Lock className="h-4 w-4 text-blue-600" />}
+          icon={<Lock className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
           accentColor="bg-blue-600"
-          numberColor="text-blue-900"
-          className="bg-blue-50/40"
+          numberColor="text-blue-900 dark:text-blue-300"
+          className="bg-blue-50/40 stat-glow-emerald"
           onClick={() => { state.clearFilters(); state.setStatusFilter("Closed"); }}
         />
         <StatCard
           title="Was Reopened"
           value={kpis.wasReopened}
-          icon={<RotateCcw className="h-4 w-4 text-amber-500" />}
+          icon={<RotateCcw className="h-4 w-4 text-amber-500 dark:text-amber-400" />}
           accentColor="bg-amber-500"
-          numberColor="text-amber-800"
-          className="bg-amber-50/40"
+          numberColor="text-amber-800 dark:text-amber-300"
+          className="bg-amber-50/40 stat-glow-amber"
           onClick={() => state.clearFilters()}
         />
       </div>

@@ -391,137 +391,149 @@ export default function AdminUsersPage() {
 
       {/* Edit / Create User Dialog — includes permissions */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? `Edit User — ${form.name}` : "Create User"}</DialogTitle>
-            <DialogDescription>
-              {editingId ? "Update user details and permissions." : "Fill in details and set permissions for the new user."}
-            </DialogDescription>
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-lg p-0">
+          {/* ── Fixed Header ── */}
+          <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
+                <Pencil className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">{editingId ? `Edit User` : "Create User"}</DialogTitle>
+                <DialogDescription className="mt-0.5">
+                  {editingId ? form.name : "Fill in details and set permissions."}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2">
-            {/* User Info Section */}
-            <div className="grid gap-3">
-              <div className="grid gap-1.5">
-                <Label className="text-xs">Emp ID</Label>
-                <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="e.g. 0188643" disabled={!!editingId} className="h-9" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs">Name</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. John Doe" className="h-9" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs">Email</Label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="e.g. john@company.com" type="email" className="h-9" />
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Permissions Section */}
-            <div className="grid gap-3">
-              <Label className="text-sm font-semibold">Permissions</Label>
-              {permsLoading ? (
-                <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading permissions...
+          {/* ── Scrollable Body ── */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="grid gap-4">
+              {/* User Info Section */}
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Emp ID</Label>
+                  <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="e.g. 0188643" disabled={!!editingId} className="h-9" />
                 </div>
-              ) : (
-                <div className="grid gap-2">
-                  {PERM_FIELDS.map((field) => (
-                    <label
-                      key={field.key}
-                      className={`flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 ${
-                        field.destructive && perms[field.key] ? "border-destructive/50 bg-destructive/5" : ""
-                      }`}
-                    >
-                      <Checkbox
-                        checked={perms[field.key]}
-                        onCheckedChange={(checked) => setPerms({ ...perms, [field.key]: !!checked })}
-                        className={field.destructive ? "border-destructive data-[state=checked]:bg-destructive" : ""}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{field.label}</div>
-                        <div className="text-xs text-muted-foreground">{field.description}</div>
-                      </div>
-                    </label>
-                  ))}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Name</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. John Doe" className="h-9" />
                 </div>
-              )}
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="e.g. john@company.com" type="email" className="h-9" />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Permissions Section — 2-column grid */}
+              <div className="grid gap-3">
+                <Label className="text-sm font-semibold">Permissions</Label>
+                {permsLoading ? (
+                  <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading permissions...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {PERM_FIELDS.map((field) => (
+                      <label
+                        key={field.key}
+                        className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 ${
+                          field.destructive && perms[field.key] ? "border-destructive/50 bg-destructive/5" : ""
+                        }`}
+                      >
+                        <Checkbox
+                          checked={perms[field.key]}
+                          onCheckedChange={(checked) => setPerms({ ...perms, [field.key]: !!checked })}
+                          className={`mt-0.5 ${field.destructive ? "border-destructive data-[state=checked]:bg-destructive" : ""}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium leading-tight">{field.label}</div>
+                          <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{field.description}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Activate / Deactivate + Audit for existing users */}
+              {editingId && (() => {
+                const editUser = items.find((u) => u.id === editingId);
+                return (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Account Status</p>
+                        <p className="text-xs text-muted-foreground">
+                          {editUser?.isActive
+                            ? "This user is currently active."
+                            : "This user is currently inactive."}
+                        </p>
+                      </div>
+                      <Button
+                        variant={editUser?.isActive ? "destructive" : "default"}
+                        size="sm"
+                        onClick={() => {
+                          if (editUser) {
+                            handleToggle(editUser);
+                            setDialogOpen(false);
+                          }
+                        }}
+                      >
+                        {editUser?.isActive ? "Deactivate" : "Activate"}
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    {/* Audit Info */}
+                    <div className="grid gap-2">
+                      <Label className="text-sm font-semibold">Audit Info</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+                          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Created</p>
+                            <p className="text-xs font-medium truncate">
+                              {editUser?.createdAt
+                                ? format(new Date(editUser.createdAt), "dd MMM yyyy")
+                                : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+                          <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Last Login</p>
+                            <p className="text-xs font-medium truncate">
+                              {editUser?.lastLoginAt
+                                ? formatDistanceToNow(new Date(editUser.lastLoginAt), { addSuffix: true })
+                                : "Never"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Issues</p>
+                            <p className="text-xs font-medium">{editUser?.issuesRaised ?? 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-
-            {/* Activate / Deactivate + Audit for existing users */}
-            {editingId && (() => {
-              const editUser = items.find((u) => u.id === editingId);
-              return (
-                <>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Account Status</p>
-                      <p className="text-xs text-muted-foreground">
-                        {editUser?.isActive
-                          ? "This user is currently active."
-                          : "This user is currently inactive."}
-                      </p>
-                    </div>
-                    <Button
-                      variant={editUser?.isActive ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => {
-                        if (editUser) {
-                          handleToggle(editUser);
-                          setDialogOpen(false);
-                        }
-                      }}
-                    >
-                      {editUser?.isActive ? "Deactivate" : "Activate"}
-                    </Button>
-                  </div>
-
-                  <Separator />
-
-                  {/* Audit Info */}
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-semibold">Audit Info</Label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-                        <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Created</p>
-                          <p className="text-xs font-medium truncate">
-                            {editUser?.createdAt
-                              ? format(new Date(editUser.createdAt), "dd MMM yyyy")
-                              : "—"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-                        <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Last Login</p>
-                          <p className="text-xs font-medium truncate">
-                            {editUser?.lastLoginAt
-                              ? formatDistanceToNow(new Date(editUser.lastLoginAt), { addSuffix: true })
-                              : "Never"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Issues</p>
-                          <p className="text-xs font-medium">{editUser?.issuesRaised ?? 0}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
           </div>
 
-          <DialogFooter>
+          {/* ── Fixed Footer ── */}
+          <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -37,7 +37,7 @@ export function OverdueTable({ issues }: OverdueTableProps) {
             Overdue Issues
           </CardTitle>
           {overdueIssues.length > 0 && (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+            <span className="rounded-full bg-red-100 dark:bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-400">
               {overdueIssues.length}
             </span>
           )}
@@ -65,7 +65,7 @@ export function OverdueTable({ issues }: OverdueTableProps) {
               </thead>
               <tbody className="divide-y divide-border">
                 {overdueIssues.map((issue) => (
-                  <tr key={issue.id} className="group bg-red-50/30 transition-colors hover:bg-red-50/60">
+                  <tr key={issue.id} className="group bg-red-50/30 dark:bg-red-500/5 transition-colors hover:bg-red-50/60 dark:hover:bg-red-500/10">
                     <td className="py-3 pr-4">
                       <span className="font-medium text-foreground">
                         {issue.issueTitle}
@@ -81,7 +81,7 @@ export function OverdueTable({ issues }: OverdueTableProps) {
                       {issue.owner}
                     </td>
                     <td className="py-3 pr-4">
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                      <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:text-red-400">
                         {issue.daysOverdue}d
                       </span>
                     </td>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { AdminSidebar, AdminMobileNav, NAV_ITEMS } from "@/components/admin/admin-sidebar";
 import { useTheme } from "@/hooks/use-theme";
-import { Sun, Moon, LogOut, User, Search } from "lucide-react";
+import { Sun, Moon, LogOut, User } from "lucide-react";
 
 export function AdminLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -52,11 +52,11 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="admin-shell flex h-screen overflow-hidden bg-background dark:bg-transparent">
       <AdminSidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        {/* Header — off-white in light, dark in dark mode */}
-        <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-muted/50 dark:bg-sidebar backdrop-blur-xl px-5 md:px-6 gap-3">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden dark:bg-transparent">
+        {/* Header — off-white in light, glass in dark mode */}
+        <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-muted/50 dark:!bg-[rgba(8,9,13,0.4)] dark:!backdrop-blur-2xl dark:!border-b-white/[0.06] px-5 md:px-6 gap-3 dark:shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
           {/* Subtle gradient accent line at bottom */}
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/20 dark:via-sidebar-primary/30 to-transparent" />
 
@@ -66,16 +66,6 @@ export function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* Search placeholder */}
-            <button
-              className="hidden md:flex h-8 items-center gap-2 rounded-lg border border-border/60 dark:border-sidebar-border bg-background/60 dark:bg-sidebar-accent/50 px-3 text-xs text-muted-foreground transition-colors hover:bg-accent dark:hover:bg-sidebar-accent hover:text-foreground dark:hover:text-sidebar-accent-foreground mr-2"
-              onClick={() => {/* future search */}}
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span>Search...</span>
-              <kbd className="ml-3 rounded border border-border/60 dark:border-sidebar-border bg-background dark:bg-sidebar px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/60">/</kbd>
-            </button>
-
             {/* User pill */}
             <div className="hidden sm:flex items-center gap-2 rounded-full bg-accent/60 dark:bg-sidebar-accent/60 px-3 py-1.5 mr-1 border border-border/50 dark:border-sidebar-border/50">
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 dark:bg-sidebar-primary/20">
@@ -105,7 +95,7 @@ export function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6 dark:bg-transparent">
           <Outlet />
         </main>
       </div>

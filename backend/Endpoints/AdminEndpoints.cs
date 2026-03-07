@@ -23,8 +23,8 @@ public static class AdminEndpoints
             if (tokenResult is null || tokenResult.Isexpired != 0)
                 return Results.Json(new { error = "Token is invalid or expired" }, statusCode: 401);
 
-            // 2. Token valid — normalize emp ID (strip leading zeros to match admin-added format)
-            var empId = int.TryParse(tokenResult.Userempid, out var parsed) ? parsed.ToString() : tokenResult.Userempid;
+            // 2. Token valid — use emp ID as-is (MasterUsers stores IDs with leading zeros)
+            var empId = tokenResult.Userempid?.Trim() ?? "";
             var user = await adminRepo.GetUserByIdAsync(empId);
 
             if (user is null)
@@ -229,6 +229,7 @@ public static class AdminEndpoints
             if (user is null)
                 return Results.NotFound(new { error = "User not found or inactive" });
 
+            await adminRepo.StampLastLoginAsync(req.UserId);
             var sessionToken = SessionStore.Create(user.Id);
             return Results.Ok(new { user, sessionToken });
         });

@@ -88,6 +88,22 @@ public static class IssueEndpoints
         .WithName("DeleteIssue")
         .WithSummary("Delete an issue");
 
+        // POST /api/issues/{id}/delete  (IIS WebDAV blocks DELETE verb)
+        group.MapPost("/{id:int}/delete", async (int id, IIssueService service) =>
+        {
+            try
+            {
+                await service.DeleteAsync(id);
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+        })
+        .WithName("DeleteIssuePost")
+        .WithSummary("Delete an issue (POST fallback for IIS)");
+
         // POST /api/issues/{id}/resolve
         group.MapPost("/{id:int}/resolve", async (int id, ResolveIssueRequest request, IIssueService service) =>
         {

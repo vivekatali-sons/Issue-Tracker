@@ -72,10 +72,10 @@ export function IssuesTable({ issues, sortBy, sortDir, onToggleSort, renderActio
   const { getProcessName, getUserName } = useMasterData();
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden dark:bg-transparent dark:backdrop-blur-xl dark:border-white/8">
       <Table className="w-full table-fixed">
         <TableHeader>
-          <TableRow className="hover:bg-transparent bg-muted/30">
+          <TableRow className="hover:bg-transparent bg-muted/30 dark:bg-white/[0.03]">
             <SortableHeader
               label="Issue"
               field="title"
@@ -143,8 +143,8 @@ export function IssuesTable({ issues, sortBy, sortDir, onToggleSort, renderActio
                 className={cn(
                   "group cursor-pointer transition-colors",
                   isOverdue
-                    ? "bg-red-50/30 hover:bg-red-50/60 shadow-[inset_3px_0_0_0_theme(colors.red.500)]"
-                    : "hover:bg-accent/50"
+                    ? "bg-red-50/30 hover:bg-red-50/60 dark:bg-red-500/[0.06] dark:hover:bg-red-500/[0.12] shadow-[inset_3px_0_0_0_theme(colors.red.500)]"
+                    : "hover:bg-accent/50 dark:hover:bg-white/[0.04]"
                 )}
                 onClick={() => navigate(`/issues/detail?id=${issue.id}`)}
               >

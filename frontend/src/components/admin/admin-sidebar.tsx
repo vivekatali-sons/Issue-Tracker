@@ -87,7 +87,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 /** Desktop sidebar */
 export function AdminSidebar() {
   return (
-    <aside className="hidden md:flex w-60 flex-col border-r border-sidebar-border/50 bg-sidebar backdrop-blur-xl">
+    <aside className="hidden md:flex w-60 flex-col border-r border-sidebar-border/50 bg-sidebar dark:!bg-[rgba(8,9,13,0.5)] dark:!backdrop-blur-3xl dark:!border-r-white/[0.06]">
       <div className="border-b border-sidebar-border">
         <SidebarBrand />
       </div>
