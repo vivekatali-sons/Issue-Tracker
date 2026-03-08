@@ -19,6 +19,11 @@ public class Issue
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    // Soft delete
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+
     // Navigation — populated by service layer
     public List<string> DependentProcesses { get; set; } = [];
     public List<FileAttachment> Attachments { get; set; } = [];

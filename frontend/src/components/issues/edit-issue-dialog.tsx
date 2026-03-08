@@ -103,15 +103,15 @@ export function EditIssueDialog({ issue, open, onOpenChange, onSuccess }: EditIs
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!isSubmitting) onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl p-0">
         {/* Fixed header */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+        <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Edit className="h-4.5 w-4.5 text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Edit className="h-[18px] w-[18px] text-primary" />
             </div>
             <div>
-              <DialogTitle>Edit Issue</DialogTitle>
+              <DialogTitle className="text-base">Edit Issue</DialogTitle>
               <DialogDescription className="mt-0.5">
                 <span className="font-mono font-medium">#{issue.id}</span> &middot; {issue.issueTitle}
               </DialogDescription>
@@ -197,7 +197,7 @@ export function EditIssueDialog({ issue, open, onOpenChange, onSuccess }: EditIs
         </div>
 
         {/* Fixed footer */}
-        <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>

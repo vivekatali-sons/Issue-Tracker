@@ -16,7 +16,7 @@ import AdminSeveritiesPage from "@/pages/admin/AdminSeveritiesPage";
 import AdminProcessesPage from "@/pages/admin/AdminProcessesPage";
 import AdminTasksPage from "@/pages/admin/AdminTasksPage";
 import AdminUsersPage from "@/pages/admin/AdminUsersPage";
-// Permissions merged into AdminUsersPage
+import AdminAuditPage from "@/pages/admin/AdminAuditPage";
 
 export function App() {
   return (
@@ -43,6 +43,7 @@ export function App() {
         <Route path="/admin/processes" element={<AdminProcessesPage />} />
         <Route path="/admin/tasks" element={<AdminTasksPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/audit" element={<AdminAuditPage />} />
       </Route>
     </Routes>
   );

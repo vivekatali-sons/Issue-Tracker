@@ -179,6 +179,19 @@ Internal issue tracking and management system for Ali & Sons. Tracks issues acro
 │                               │  CanAccessAdmin  │                          │
 │                               │  IsBlocked       │                          │
 │                               └──────────────────┘                          │
+│                                                                              │
+│  ┌──────────────────┐                                                       │
+│  │    AuditLog       │                                                       │
+│  │──────────────────│                                                       │
+│  │ *Id  INT IDENT.  │                                                       │
+│  │  Action          │  -- Created, Updated, Deleted, Resolved, Reopened,    │
+│  │  EntityType      │  -- Restored                                          │
+│  │  EntityId (INT)  │  -- Issue ID or other entity ID                       │
+│  │  UserId          │                                                       │
+│  │  Details (JSON)  │                                                       │
+│  │  IpAddress       │                                                       │
+│  │  Timestamp       │                                                       │
+│  └──────────────────┘                                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -219,6 +232,24 @@ Internal issue tracking and management system for Ali & Sons. Tracks issues acro
 | `ReopenCount` | INT | DEFAULT 0 | Times reopened |
 | `CreatedAt` | DATETIME2 | DEFAULT SYSUTCDATETIME() | Record creation |
 | `UpdatedAt` | DATETIME2 | DEFAULT SYSUTCDATETIME() | Last modification |
+| `IsDeleted` | BIT | DEFAULT 0 | Soft-delete flag |
+| `DeletedAt` | DATETIME2 | NULL | When soft-deleted |
+| `DeletedBy` | NVARCHAR(100) | NULL | Who deleted it |
+
+#### AuditLog
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `Id` | INT | PK, IDENTITY | Auto-increment audit ID |
+| `Action` | NVARCHAR(50) | NOT NULL | Created, Updated, Deleted, Resolved, Reopened, Restored |
+| `EntityType` | NVARCHAR(50) | NOT NULL | Issue, MasterData, etc. |
+| `EntityId` | INT | NULL | Reference ID (e.g. Issue ID) |
+| `UserId` | NVARCHAR(100) | NOT NULL | Who performed the action |
+| `Details` | NVARCHAR(MAX) | NULL | JSON with change details / field diffs |
+| `IpAddress` | NVARCHAR(50) | NULL | Client IP address |
+| `Timestamp` | DATETIME2 | DEFAULT SYSUTCDATETIME() | When the action occurred |
+
+**Indexes:** `IX_AuditLog_EntityType_EntityId`, `IX_AuditLog_UserId`, `IX_AuditLog_Timestamp`
 
 #### Resolutions
 
@@ -234,26 +265,31 @@ Internal issue tracking and management system for Ali & Sons. Tracks issues acro
 | `PreventiveMeasures` | NVARCHAR(MAX) | DEFAULT '' | Steps to prevent recurrence |
 | `VerificationDate` | DATETIME2 | NULL | When verified by testers |
 
-#### Cascade Delete Behavior
+#### Soft Delete & Cascade Delete
 
-Deleting an Issue cascades through the entire hierarchy:
+Deleting an issue performs a **soft delete** — the row is kept but marked `IsDeleted = 1` with a timestamp and actor. Soft-deleted issues are excluded from all queries and visible only in the Admin Recycle Bin.
+
+**Admin Restore** undoes a soft delete (sets `IsDeleted = 0`, clears `DeletedAt`/`DeletedBy`).
+
+**Admin Hard Delete** (permanent) cascades through the entire hierarchy:
 
 ```
-DELETE Issue
+HARD DELETE Issue (admin only, via sp_HardDeleteIssue)
   ├── DELETE IssueDependentProcesses  (ON DELETE CASCADE)
   ├── DELETE FileAttachments          (ON DELETE CASCADE)
   ├── DELETE IssueVersions            (ON DELETE CASCADE)
+  ├── DELETE AuditLog entries         (EntityType='Issue', EntityId=@Id)
   └── DELETE Resolutions              (ON DELETE CASCADE)
         ├── DELETE ResolutionTesters   (ON DELETE CASCADE)
         └── DELETE DependentProcessTestResults
               └── DELETE TestResultTesters  (ON DELETE CASCADE)
 ```
 
-> Full deletion is wrapped in a transaction within `sp_DeleteIssue`.
+> Hard deletion is wrapped in a transaction within `sp_HardDeleteIssue`.
 
-### Stored Procedures (51)
+### Stored Procedures (57)
 
-All database operations go through stored procedures via Dapper with `CommandType.StoredProcedure`. The only exception is `IntranetRepository.cs` which uses inline SQL against the external `Intranet_live` database (no SP creation permissions on that shared DB).
+All database operations go through stored procedures via Dapper with `CommandType.StoredProcedure`. The only exception is `IntranetRepository.cs` which uses inline SQL against the external `Intranet_live` database (no SP creation permissions on that shared DB). Migration 002 added 6 new SPs and updated 4 existing ones for audit trail and soft delete.
 
 <details>
 <summary>Click to expand full stored procedure list</summary>
@@ -311,6 +347,12 @@ All database operations go through stored procedures via Dapper with `CommandTyp
 | 49 | `sp_UpsertUserPermissions` | Permissions | Create or update user permissions |
 | 50 | `sp_GetUserById` | Auth | Look up user + permissions by ID |
 | 51 | `sp_EnsureUser` | Auth | Upsert user + default permissions |
+| 52 | `sp_InsertAuditLog` | Audit | Insert an audit log entry |
+| 53 | `sp_GetAuditLogs` | Audit | Paginated audit logs with optional filters |
+| 54 | `sp_GetAuditLogsByIssue` | Audit | All audit logs for a specific issue |
+| 55 | `sp_HardDeleteIssue` | Issues | Permanent delete with full cascade (admin only) |
+| 56 | `sp_RestoreIssue` | Issues | Undo soft delete (admin only) |
+| 57 | `sp_GetDeletedIssues` | Issues | List all soft-deleted issues (admin only) |
 
 </details>
 
@@ -325,7 +367,7 @@ For manual setup or CI/CD pipelines, a standalone SQL script is available:
 sqlcmd -S YOUR_SERVER -d master -i setup-database.sql
 ```
 
-The script creates the `IssuesTracker` database, all 15 tables, and all 51 stored procedures.
+The script creates the `IssuesTracker` database, all 16 tables, and all 57 stored procedures.
 
 ---
 
@@ -435,6 +477,7 @@ Endpoint filter validates token → 401 if invalid/expired
 | POST | `/api/issues/{id}/resolve` | Resolve an issue |
 | POST | `/api/issues/{id}/reopen` | Reopen a resolved issue |
 | POST | `/api/issues/bulk` | Bulk upload issues from CSV |
+| GET | `/api/issues/{id}/audit-log` | Audit trail for a specific issue |
 
 ### Master Data (`/api/master`) — requires `X-Session-Token`
 
@@ -462,6 +505,11 @@ Endpoint filter validates token → 401 if invalid/expired
 | POST | `/api/admin/employees/add` | Add Intranet employee as DMS user |
 | GET | `/api/admin/permissions` | List all user permissions |
 | GET/PUT | `/api/admin/permissions/{userId}` | Get/update user permissions |
+| GET | `/api/admin/audit-logs` | Paginated audit logs (filterable by entity, user, action) |
+| GET | `/api/admin/audit-logs/issue/{issueId}` | Audit logs for a specific issue |
+| GET | `/api/admin/deleted-issues` | List soft-deleted issues (recycle bin) |
+| POST | `/api/admin/deleted-issues/{id}/restore` | Restore a soft-deleted issue |
+| POST | `/api/admin/deleted-issues/{id}/hard-delete` | Permanently delete an issue |
 
 ---
 
@@ -519,11 +567,13 @@ DMS_WebApp/
 │   ├── Models/
 │   │   ├── IssueModels.cs             # Issue, IssueVersion, Resolution DTOs
 │   │   ├── AdminModels.cs             # Admin DTOs + IntranetEmployee
+│   │   ├── AuditLog.cs                # AuditLog entity
 │   │   └── ...                        # FileAttachment, MasterData, etc.
 │   ├── Repositories/
 │   │   ├── IssueRepository.cs         # Issues CRUD (all stored procedures)
 │   │   ├── MasterDataRepository.cs    # Master data reads
 │   │   ├── AdminRepository.cs         # Admin CRUD + permissions
+│   │   ├── AuditRepository.cs         # Audit log + soft-delete operations
 │   │   └── IntranetRepository.cs      # Intranet DB (read-only, inline SQL)
 │   ├── Services/
 │   │   ├── IssueService.cs            # Business logic (parallel query hydration)
@@ -536,7 +586,7 @@ DMS_WebApp/
 │   ├── appsettings.Production.json    # Prod overrides (server DB)
 │   └── DMS.API.csproj
 │
-├── frontend-react/                    # React 19 + Vite SPA
+├── frontend/                        # React 19 + Vite SPA
 │   ├── public/
 │   │   ├── config.json                # Runtime config (API_URL, EDP_PORTAL_URL)
 │   │   └── sample-issues.csv          # Template for bulk upload
@@ -558,9 +608,10 @@ DMS_WebApp/
 │   │   ├── pages/
 │   │   │   ├── DashboardPage.tsx      # Charts + KPIs
 │   │   │   ├── IssuesPage.tsx         # All issues table
-│   │   │   ├── IssueDetailPage.tsx    # Issue detail + resolve/reopen
+│   │   │   ├── IssueDetailPage.tsx    # Issue detail + resolve/reopen + audit trail
 │   │   │   ├── NewIssuePage.tsx       # Create issue form
 │   │   │   └── admin/                 # Admin panel pages
+│   │   │       └── AdminAuditPage.tsx # Audit trail + recycle bin (restore/hard-delete)
 │   │   └── components/
 │   │       ├── ui/                    # shadcn/ui primitives
 │   │       ├── issues/                # Issue-specific components
@@ -569,6 +620,7 @@ DMS_WebApp/
 │   ├── package.json
 │   └── vite.config.ts
 │
+├── backend/migration-002-audit-softdelete.sql  # Incremental migration (audit + soft delete)
 ├── README.md
 └── .gitignore
 ```
@@ -623,7 +675,7 @@ dotnet run --environment Development
 
 **4. Configure the frontend:**
 
-Edit `frontend-react/public/config.json`:
+Edit `frontend/public/config.json`:
 
 ```json
 {
@@ -929,6 +981,7 @@ sudo systemctl reload nginx
 | Frontend shows blank page after deploy | SPA routing not configured | Add `web.config` (IIS) or `try_files` (Nginx) — see deployment sections |
 | `Connection refused` to SQL Server | Firewall or SQL Browser not running | Enable TCP/IP in SQL Server Config Manager, open port 1433 |
 | `DMS.API.exe` locked during build | Old backend process still running | Kill the process: `taskkill /F /IM DMS.API.exe` (Windows) or `pkill DMS.API` (Linux) |
+| `405 Method Not Allowed` on DELETE/PUT | IIS WebDAV module blocks these verbs | All destructive operations use POST fallback endpoints (e.g. `POST /{id}/delete`) |
 
 ### Health Check
 

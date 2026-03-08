@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -23,14 +24,15 @@ export function VersionHistoryDialog({ issue, open, onOpenChange }: VersionHisto
   const { getUserName, getProcessName } = useMasterData();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl p-0">
+        {/* ── Fixed Header ── */}
+        <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10">
-              <History className="h-4.5 w-4.5 text-violet-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/10">
+              <History className="h-[18px] w-[18px] text-violet-600" />
             </div>
             <div>
-              <DialogTitle>Version History</DialogTitle>
+              <DialogTitle className="text-base">Version History</DialogTitle>
               <DialogDescription className="mt-0.5">
                 {issue.issueTitle} &middot; {issue.versions.length} entr{issue.versions.length !== 1 ? "ies" : "y"}
               </DialogDescription>
@@ -38,7 +40,8 @@ export function VersionHistoryDialog({ issue, open, onOpenChange }: VersionHisto
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* ── Scrollable Body ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {[...issue.versions].map((version, idx) => ({
             version,
             seqNum: idx + 1,
@@ -153,6 +156,9 @@ export function VersionHistoryDialog({ issue, open, onOpenChange }: VersionHisto
             );
           })}
         </div>
+
+        {/* ── Fixed Footer ── */}
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4" showCloseButton />
       </DialogContent>
     </Dialog>
   );

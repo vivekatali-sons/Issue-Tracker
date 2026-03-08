@@ -1,5 +1,5 @@
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { CheckCircle2, Loader2, CircleCheck } from "lucide-react";
 import { format } from "date-fns";
 import { parseUtcDate } from "@/lib/utils";
@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -103,7 +105,6 @@ export function ResolveIssueDialog({ issue, open, onOpenChange, onSuccess }: Res
     depProcesses?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [headerShadow, setHeaderShadow] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasDeps = issue.dependentProcesses.length > 0;
@@ -112,11 +113,6 @@ export function ResolveIssueDialog({ issue, open, onOpenChange, onSuccess }: Res
     resolvedBy !== "" &&
     resolutionNotes.trim().length > 0 &&
     (!hasDeps || allDepsTested);
-
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    setHeaderShadow(scrollRef.current.scrollTop > 0);
-  }, []);
 
   const toggleTestedBy = (userId: string) => {
     setTestedBy((prev) =>
@@ -167,9 +163,7 @@ export function ResolveIssueDialog({ issue, open, onOpenChange, onSuccess }: Res
         dependentProcessesTestResults: depResults,
       });
 
-      toast.success("Issue marked as Resolved", {
-        description: `${issue.issueTitle} has been resolved by ${getUserName(resolvedBy)}.`,
-      });
+      toast.success("Issue resolved successfully");
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {
@@ -182,43 +176,24 @@ export function ResolveIssueDialog({ issue, open, onOpenChange, onSuccess }: Res
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="sm:max-w-[860px] max-h-[90vh] sm:max-h-[85vh] overflow-hidden p-0 gap-0"
-        showCloseButton={false}
-      >
-        <div className="flex flex-col max-h-[90vh] sm:max-h-[85vh]">
-          {/* ══════════════ Sticky Header ══════════════ */}
-          <div
-            className={`shrink-0 px-4 sm:px-6 py-4 border-b bg-background transition-shadow duration-150 ${
-              headerShadow ? "shadow-sm" : ""
-            }`}
-          >
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-[860px] p-0">
+          {/* ── Fixed Header ── */}
+          <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10 shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
                 <CheckCircle2 className="h-[18px] w-[18px] text-green-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <DialogTitle className="text-[17px] font-semibold leading-tight">Resolve Issue</DialogTitle>
-                <DialogDescription className="text-[13px] text-muted-foreground truncate mt-0.5">
+                <DialogTitle className="text-base">Resolve Issue</DialogTitle>
+                <DialogDescription className="mt-0.5 truncate">
                   {issue.issueTitle}
                 </DialogDescription>
               </div>
-              <button
-                onClick={() => onOpenChange(false)}
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-                aria-label="Close"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
             </div>
-          </div>
+          </DialogHeader>
 
-          {/* ══════════════ Scrollable Body ══════════════ */}
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 py-5"
-          >
+          {/* ── Scrollable Body ── */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4">
             {/* ── Issue Summary Panel ── */}
             <div className="rounded-lg border bg-muted/30 p-4 mb-1">
               <h4 className="text-sm font-semibold text-foreground mb-1.5">{issue.issueTitle}</h4>
@@ -403,32 +378,24 @@ export function ResolveIssueDialog({ issue, open, onOpenChange, onSuccess }: Res
             </div>
           </div>
 
-          {/* ══════════════ Fixed Footer ══════════════ */}
-          <div className="shrink-0 border-t bg-muted/30 px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-muted-foreground/60 hidden sm:block">
-                This will move the issue to <span className="font-medium">Resolved</span> status.
-              </p>
-              <div className="flex items-center gap-3 ml-auto">
-                <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!isFormValid || isSubmitting}
-                  className="gap-1.5 bg-green-600 hover:bg-green-700 text-white px-5"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  {isSubmitting ? "Resolving..." : "Mark as Resolved"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+          {/* ── Fixed Footer ── */}
+          <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isFormValid || isSubmitting}
+              className="gap-1.5 bg-green-600 hover:bg-green-700 text-white px-5"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {isSubmitting ? "Resolving..." : "Mark as Resolved"}
+            </Button>
+          </DialogFooter>
       </DialogContent>
     </Dialog>
   );

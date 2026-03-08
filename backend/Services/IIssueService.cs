@@ -8,7 +8,7 @@ public interface IIssueService
     Task<IssueDetailResponse?> GetByIdAsync(int id);
     Task<int> CreateAsync(CreateIssueRequest request);
     Task UpdateAsync(int id, UpdateIssueRequest request);
-    Task DeleteAsync(int id);
+    Task DeleteAsync(int id, string? deletedBy = null);
     Task ResolveAsync(int id, ResolveIssueRequest request);
     Task ReopenAsync(int id, ReopenIssueRequest request);
     Task<BulkUploadResult> BulkCreateFromCsvAsync(Stream csvStream);

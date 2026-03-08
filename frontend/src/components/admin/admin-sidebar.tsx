@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, List, Gauge, Cog, ClipboardList, Users, ArrowLeft, Menu, Shield,
+  LayoutDashboard, List, Gauge, Cog, ClipboardList, Users, ArrowLeft, Menu, Shield, History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export const NAV_ITEMS = [
   { title: "Processes", href: "/admin/processes", icon: Cog },
   { title: "Tasks", href: "/admin/tasks", icon: ClipboardList },
   { title: "Users", href: "/admin/users", icon: Users },
+  { title: "Audit Trail", href: "/admin/audit", icon: History },
 ];
 
 function SidebarBrand() {

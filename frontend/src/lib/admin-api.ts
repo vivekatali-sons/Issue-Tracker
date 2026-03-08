@@ -299,6 +299,7 @@ export interface AdminDashboardStats {
   activeSeverities: number;
   activeProcesses: number;
   activeTasks: number;
+  deletedIssues: number;
 }
 
 export function fetchDashboardStats() {
@@ -329,5 +330,79 @@ export function updateUserPermissions(
   return adminRequest<void>(`/api/admin/permissions/${userId}/update`, {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+// ── Audit Logs ──
+
+export interface AuditLogEntry {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  userId: string;
+  details: string | null;
+  ipAddress: string | null;
+  timestamp: string;
+}
+
+export function fetchAuditLogs(params?: {
+  entityType?: string;
+  entityId?: number;
+  userId?: string;
+  action?: string;
+  pageSize?: number;
+  page?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.entityType) qs.set("entityType", params.entityType);
+  if (params?.entityId) qs.set("entityId", String(params.entityId));
+  if (params?.userId) qs.set("userId", params.userId);
+  if (params?.action) qs.set("action", params.action);
+  if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+  if (params?.page) qs.set("page", String(params.page));
+  const query = qs.toString();
+  return adminRequest<AuditLogEntry[]>(`/api/admin/audit-logs${query ? `?${query}` : ""}`);
+}
+
+export function fetchAuditLogsByIssue(issueId: number) {
+  return adminRequest<AuditLogEntry[]>(`/api/admin/audit-logs/issue/${issueId}`);
+}
+
+// ── Deleted Issues (Recycle Bin) ──
+
+export interface DeletedIssue {
+  id: number;
+  processId: string;
+  taskId: string;
+  issueTitle: string;
+  issueDescription: string;
+  status: string;
+  severity: string;
+  assignedTo: string;
+  assigningDate: string | null;
+  dueDate: string | null;
+  issueRaisedBy: string;
+  currentVersion: number;
+  reopenCount: number;
+  deletedAt: string;
+  deletedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchDeletedIssues() {
+  return adminRequest<DeletedIssue[]>("/api/admin/deleted-issues");
+}
+
+export function restoreIssue(id: number) {
+  return adminRequest<{ message: string }>(`/api/admin/deleted-issues/${id}/restore`, {
+    method: "POST",
+  });
+}
+
+export function hardDeleteIssue(id: number) {
+  return adminRequest<{ message: string }>(`/api/admin/deleted-issues/${id}/hard-delete`, {
+    method: "POST",
   });
 }

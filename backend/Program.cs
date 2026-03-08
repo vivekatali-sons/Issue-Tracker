@@ -18,11 +18,15 @@ var intranetConnectionString = builder.Configuration.GetConnectionString("Intran
     ?? throw new InvalidOperationException("Missing 'IntranetConnection' connection string.");
 builder.Services.AddSingleton<IIntranetDbConnectionFactory>(_ => new IntranetConnectionFactory(intranetConnectionString));
 
+// ── HTTP context (for audit IP capture) ──
+builder.Services.AddHttpContextAccessor();
+
 // ── Repositories & Services ──
 builder.Services.AddScoped<IIssueRepository, IssueRepository>();
 builder.Services.AddScoped<IMasterDataRepository, MasterDataRepository>();
 builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 builder.Services.AddScoped<IIntranetRepository, IntranetRepository>();
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IIssueService, IssueService>();
 builder.Services.AddScoped<IMasterDataService, MasterDataService>();
 builder.Services.AddScoped<IAdminService, AdminService>();

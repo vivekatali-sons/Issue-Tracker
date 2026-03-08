@@ -4,11 +4,13 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using DMS.API.Models;
 using DMS.API.Repositories;
+using Microsoft.AspNetCore.Http;
 
 namespace DMS.API.Services;
 
-public class IssueService(IIssueRepository repo, IMasterDataRepository masterRepo) : IIssueService
+public class IssueService(IIssueRepository repo, IMasterDataRepository masterRepo, IAuditRepository auditRepo, IHttpContextAccessor httpContextAccessor) : IIssueService
 {
+    private string? ClientIp => httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     public async Task<IEnumerable<IssueListItem>> GetAllAsync()
     {
         var issues = await repo.GetAllAsync();
@@ -121,6 +123,16 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             ModifiedBy = request.IssueRaisedBy,
         });
 
+        await auditRepo.InsertAsync(new AuditLog
+        {
+            Action = "Created",
+            EntityType = "Issue",
+            EntityId = issueId,
+            UserId = request.IssueRaisedBy,
+            Details = BuildChangesJson(changes),
+            IpAddress = ClientIp,
+        });
+
         return issueId;
     }
 
@@ -180,11 +192,37 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             ChangesSummary = changes.Count > 0 ? BuildChangesJson(changes) : null,
             ModifiedBy = request.ModifiedBy,
         });
+
+        if (changes.Count > 0)
+        {
+            await auditRepo.InsertAsync(new AuditLog
+            {
+                Action = "Updated",
+                EntityType = "Issue",
+                EntityId = id,
+                UserId = request.ModifiedBy ?? "system",
+                Details = BuildChangesJson(changes),
+                IpAddress = ClientIp,
+            });
+        }
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, string? deletedBy = null)
     {
-        await repo.DeleteAsync(id);
+        var issue = await repo.GetByIdAsync(id);
+        await repo.DeleteAsync(id, deletedBy);
+
+        await auditRepo.InsertAsync(new AuditLog
+        {
+            Action = "Deleted",
+            EntityType = "Issue",
+            EntityId = id,
+            UserId = deletedBy ?? "system",
+            Details = issue is not null
+                ? JsonSerializer.Serialize(new { issue.IssueTitle, issue.Status, issue.Severity, issue.AssignedTo })
+                : null,
+            IpAddress = ClientIp,
+        });
     }
 
     public async Task ResolveAsync(int id, ResolveIssueRequest request)
@@ -252,6 +290,16 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             ChangesSummary = BuildChangesJson(changes),
             ModifiedBy = request.ResolvedBy,
         });
+
+        await auditRepo.InsertAsync(new AuditLog
+        {
+            Action = "Resolved",
+            EntityType = "Issue",
+            EntityId = id,
+            UserId = request.ResolvedBy,
+            Details = BuildChangesJson(changes),
+            IpAddress = ClientIp,
+        });
     }
 
     public async Task ReopenAsync(int id, ReopenIssueRequest request)
@@ -297,6 +345,16 @@ public class IssueService(IIssueRepository repo, IMasterDataRepository masterRep
             ReopenReason = request.ReopenReason,
             ChangesSummary = BuildChangesJson(changes),
             ModifiedBy = request.ModifiedBy,
+        });
+
+        await auditRepo.InsertAsync(new AuditLog
+        {
+            Action = "Reopened",
+            EntityType = "Issue",
+            EntityId = id,
+            UserId = request.ModifiedBy ?? "system",
+            Details = BuildChangesJson(changes),
+            IpAddress = ClientIp,
         });
     }
 

@@ -75,12 +75,12 @@ public class IssueRepository(IDbConnectionFactory connectionFactory) : IIssueRep
             commandType: CommandType.StoredProcedure);
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, string? deletedBy = null)
     {
         using var db = Db();
         await db.ExecuteAsync(
             "sp_DeleteIssue",
-            new { Id = id },
+            new { Id = id, DeletedBy = deletedBy },
             commandType: CommandType.StoredProcedure);
     }
 

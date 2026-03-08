@@ -16,6 +16,9 @@ import {
   CheckCircle2,
   User,
   Trash2,
+  Shield,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn, isIssueOverdue, parseUtcDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -31,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIssues } from "@/hooks/use-issues";
+import { fetchIssueAuditLog, type IssueAuditLogEntry } from "@/lib/api";
 import { useConfirm } from "@/hooks/use-confirm-dialog";
 import { StatusBadge } from "@/components/issues/status-badge";
 import { SeverityBadge } from "@/components/issues/severity-badge";
@@ -91,6 +95,9 @@ function IssueDetailContent() {
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesVersion, setChangesVersion] = useState<{ version: IssueVersionType; action: string; actor: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<IssueAuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   // Re-fetch issue detail from API
   const refreshIssue = useCallback(() => {
@@ -109,6 +116,16 @@ function IssueDetailContent() {
       .finally(() => { if (!cancelled) setDetailLoading(false); });
     return () => { cancelled = true; };
   }, [numericId, getIssueDetail]);
+
+  // Fetch audit logs when section is opened
+  useEffect(() => {
+    if (!auditOpen || !numericId) return;
+    setAuditLoading(true);
+    fetchIssueAuditLog(numericId)
+      .then(setAuditLogs)
+      .catch(() => setAuditLogs([]))
+      .finally(() => setAuditLoading(false));
+  }, [auditOpen, numericId]);
 
   if (detailLoading) {
     return (
@@ -650,6 +667,92 @@ function IssueDetailContent() {
               </div>
             </>
           )}
+
+          {/* ── Audit Trail (collapsible) ── */}
+          <Separator />
+          <div>
+            <button
+              onClick={() => setAuditOpen(!auditOpen)}
+              className="flex items-center gap-2 text-base font-semibold text-foreground hover:text-primary transition w-full text-left"
+            >
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Audit Trail
+              {auditOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto" /> : <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />}
+            </button>
+
+            {auditOpen && (
+              <div className="mt-4">
+                {auditLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : auditLogs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">No audit entries recorded yet.</p>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableHead className="w-[100px] text-[11px] font-semibold uppercase tracking-widest">Action</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-widest">User</TableHead>
+                          <TableHead className="w-[150px] text-[11px] font-semibold uppercase tracking-widest">Date & Time</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-widest">Details</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {auditLogs.map((log) => {
+                          const logTime = new Date(log.timestamp);
+                          const actionStyles: Record<string, string> = {
+                            Created: "bg-emerald-100 text-emerald-700",
+                            Updated: "bg-blue-100 text-blue-700",
+                            Deleted: "bg-red-100 text-red-700",
+                            Resolved: "bg-green-100 text-green-700",
+                            Reopened: "bg-amber-100 text-amber-700",
+                            Restored: "bg-violet-100 text-violet-700",
+                          };
+
+                          let detailSummary: string | null = null;
+                          if (log.details) {
+                            try {
+                              const parsed = JSON.parse(log.details);
+                              if (Array.isArray(parsed)) {
+                                detailSummary = parsed.map((c: { field: string; to?: string }) => c.field).join(", ");
+                              } else if (typeof parsed === "object") {
+                                detailSummary = Object.keys(parsed).join(", ");
+                              }
+                            } catch { detailSummary = log.details.slice(0, 80); }
+                          }
+
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell>
+                                <span className={cn(
+                                  "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                  actionStyles[log.action] ?? "bg-gray-100 text-gray-700"
+                                )}>
+                                  {log.action}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-foreground/80 text-sm">
+                                {getUserName(log.userId)}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-xs">
+                                <div>{format(logTime, "dd MMM yyyy")}</div>
+                                <div className="text-muted-foreground/70">{format(logTime, "hh:mm a")}</div>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground max-w-[240px] truncate">
+                                {detailSummary ?? "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Footer meta */}
           <Separator />

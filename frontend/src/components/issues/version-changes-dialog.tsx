@@ -41,15 +41,15 @@ export function VersionChangesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-lg p-0">
         {/* Fixed header */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+        <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10">
-              <FileSearch className="h-4.5 w-4.5 text-indigo-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10">
+              <FileSearch className="h-[18px] w-[18px] text-indigo-600" />
             </div>
             <div>
-              <DialogTitle>Change Details</DialogTitle>
+              <DialogTitle className="text-base">Change Details</DialogTitle>
               <DialogDescription className="mt-0.5">
                 {action} by {actor} &middot; V{version.versionNumber}
               </DialogDescription>
@@ -73,7 +73,7 @@ export function VersionChangesDialog({
         </div>
 
         {/* Fixed footer */}
-        <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>

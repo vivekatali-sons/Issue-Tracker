@@ -1,4 +1,5 @@
 using DMS.API.Models;
+using DMS.API.Repositories;
 using DMS.API.Services;
 
 namespace DMS.API.Endpoints;
@@ -73,11 +74,12 @@ public static class IssueEndpoints
         .WithSummary("Update issue fields (status, assignee, severity, dates)");
 
         // DELETE /api/issues/{id}
-        group.MapDelete("/{id:int}", async (int id, IIssueService service) =>
+        group.MapDelete("/{id:int}", async (int id, HttpContext httpContext, IIssueService service) =>
         {
             try
             {
-                await service.DeleteAsync(id);
+                var userId = SessionStore.Validate(httpContext.Request.Headers["X-Session-Token"].FirstOrDefault());
+                await service.DeleteAsync(id, userId);
                 return Results.NoContent();
             }
             catch (KeyNotFoundException)
@@ -86,14 +88,15 @@ public static class IssueEndpoints
             }
         })
         .WithName("DeleteIssue")
-        .WithSummary("Delete an issue");
+        .WithSummary("Soft-delete an issue");
 
         // POST /api/issues/{id}/delete  (IIS WebDAV blocks DELETE verb)
-        group.MapPost("/{id:int}/delete", async (int id, IIssueService service) =>
+        group.MapPost("/{id:int}/delete", async (int id, HttpContext httpContext, IIssueService service) =>
         {
             try
             {
-                await service.DeleteAsync(id);
+                var userId = SessionStore.Validate(httpContext.Request.Headers["X-Session-Token"].FirstOrDefault());
+                await service.DeleteAsync(id, userId);
                 return Results.NoContent();
             }
             catch (KeyNotFoundException)
@@ -102,7 +105,7 @@ public static class IssueEndpoints
             }
         })
         .WithName("DeleteIssuePost")
-        .WithSummary("Delete an issue (POST fallback for IIS)");
+        .WithSummary("Soft-delete an issue (POST fallback for IIS)");
 
         // POST /api/issues/{id}/resolve
         group.MapPost("/{id:int}/resolve", async (int id, ResolveIssueRequest request, IIssueService service) =>
@@ -161,5 +164,14 @@ public static class IssueEndpoints
         .DisableAntiforgery()
         .WithName("BulkUploadIssues")
         .WithSummary("Bulk upload issues from a CSV file");
+
+        // GET /api/issues/{id}/audit-log
+        group.MapGet("/{id:int}/audit-log", async (int id, IAuditRepository auditRepo) =>
+        {
+            var logs = await auditRepo.GetByIssueAsync(id);
+            return Results.Ok(logs);
+        })
+        .WithName("GetIssueAuditLog")
+        .WithSummary("Get audit log for a specific issue");
     }
 }

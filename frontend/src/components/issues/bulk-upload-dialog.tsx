@@ -185,15 +185,22 @@ export function BulkUploadDialog({ open, onOpenChange }: BulkUploadDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Bulk Upload Issues</DialogTitle>
-          <DialogDescription>
-            Upload a CSV file to create multiple issues at once. Invalid rows will be skipped.
-          </DialogDescription>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl p-0">
+        <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Upload className="h-[18px] w-[18px] text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-base">Bulk Upload Issues</DialogTitle>
+              <DialogDescription className="mt-0.5">
+                Upload a CSV file to create multiple issues at once.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 py-2">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {/* Step: Idle — file picker */}
           {step === "idle" && (
             <div className="space-y-4">
@@ -457,7 +464,7 @@ export function BulkUploadDialog({ open, onOpenChange }: BulkUploadDialogProps) 
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4 gap-2">
           {step === "idle" && (
             <>
               <a href="/sample-issues.csv" download className="mr-auto">

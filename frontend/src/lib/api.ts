@@ -229,6 +229,23 @@ export interface ApiReopenIssueRequest {
   modifiedBy?: string;
 }
 
+// ── Issue Audit Log ──
+
+export interface IssueAuditLogEntry {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  userId: string;
+  details: string | null;
+  ipAddress: string | null;
+  timestamp: string;
+}
+
+export function fetchIssueAuditLog(issueId: number) {
+  return request<IssueAuditLogEntry[]>(`/api/issues/${issueId}/audit-log`);
+}
+
 // ── Bulk Upload ──
 
 export interface ApiBulkUploadRowError {

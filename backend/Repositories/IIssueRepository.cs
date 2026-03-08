@@ -8,7 +8,7 @@ public interface IIssueRepository
     Task<Issue?> GetByIdAsync(int id);
     Task<int> CreateAsync(Issue issue);
     Task UpdateAsync(Issue issue);
-    Task DeleteAsync(int id);
+    Task DeleteAsync(int id, string? deletedBy = null);
 
     // Dependent processes
     Task SetDependentProcessesAsync(int issueId, List<string> processIds);

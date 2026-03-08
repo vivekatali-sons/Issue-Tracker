@@ -55,14 +55,14 @@ export function ReopenIssueDialog({ issue, open, onOpenChange, onSuccess }: Reop
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!isSubmitting) onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-lg p-0">
+        <DialogHeader className="flex-shrink-0 border-b bg-muted/40 dark:bg-white/[0.03] px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
-              <RotateCcw className="h-4.5 w-4.5 text-amber-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
+              <RotateCcw className="h-[18px] w-[18px] text-amber-600" />
             </div>
             <div>
-              <DialogTitle>Reopen Issue</DialogTitle>
+              <DialogTitle className="text-base">Reopen Issue</DialogTitle>
               <DialogDescription className="mt-0.5">
                 {issue.issueTitle}
               </DialogDescription>
@@ -70,7 +70,7 @@ export function ReopenIssueDialog({ issue, open, onOpenChange, onSuccess }: Reop
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           <div className="rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-amber-800">
             This will create <span className="font-semibold">Version {issue.currentVersion + 1}</span> and reset the resolution.
             The issue will be reassigned to the previous owner.
@@ -86,7 +86,7 @@ export function ReopenIssueDialog({ issue, open, onOpenChange, onSuccess }: Reop
           </FormField>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -254,6 +254,51 @@ public static class AdminEndpoints
             await repo.UpsertUserPermissionsAsync(userId, req);
             return Results.NoContent();
         });
+
+        // ── Audit Logs ──
+        group.MapGet("/audit-logs", async (HttpContext ctx, IAdminService svc, IAuditRepository auditRepo,
+            string? entityType, int? entityId, string? userId, string? action, int? pageSize, int? page) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            var logs = await auditRepo.GetLogsAsync(entityType, entityId, userId, action, pageSize ?? 50, page ?? 1);
+            return Results.Ok(logs);
+        });
+
+        group.MapGet("/audit-logs/issue/{issueId:int}", async (int issueId, HttpContext ctx, IAdminService svc, IAuditRepository auditRepo) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            var logs = await auditRepo.GetByIssueAsync(issueId);
+            return Results.Ok(logs);
+        });
+
+        // ── Deleted Issues (Recycle Bin) ──
+        group.MapGet("/deleted-issues", async (HttpContext ctx, IAdminService svc, IAuditRepository auditRepo) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            var issues = await auditRepo.GetDeletedIssuesAsync();
+            return Results.Ok(issues);
+        });
+
+        group.MapPost("/deleted-issues/{id:int}/restore", async (int id, HttpContext ctx, IAdminService svc, IAuditRepository auditRepo) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            await auditRepo.RestoreIssueAsync(id);
+            await auditRepo.InsertAsync(new AuditLog
+            {
+                Action = "Restored",
+                EntityType = "Issue",
+                EntityId = id,
+                UserId = "admin",
+            });
+            return Results.Ok(new { message = "Issue restored successfully" });
+        });
+
+        group.MapPost("/deleted-issues/{id:int}/hard-delete", async (int id, HttpContext ctx, IAdminService svc, IAuditRepository auditRepo) =>
+        {
+            if (!Authorize(ctx, svc)) return Results.Unauthorized();
+            await auditRepo.HardDeleteIssueAsync(id);
+            return Results.Ok(new { message = "Issue permanently deleted" });
+        });
     }
 
     private static bool Authorize(HttpContext ctx, IAdminService svc)
